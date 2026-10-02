@@ -1,0 +1,40 @@
+name: Apply VS v0.3 payload
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  apply:
+    if: github.event.head_commit.message == 'Apply VS v0.3 payload'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reconstruct VS v0.3
+        shell: bash
+        run: |
+          cat .release/v03/server.part1 .release/v03/server.part2 .release/v03/server.part3 | base64 -d | gzip -d > server.mjs
+          mkdir -p public supabase docs
+          cat .release/v03/index.part1 .release/v03/index.part2 | base64 -d | gzip -d > public/index.html
+          cat .release/v03/schema.part1 | base64 -d | gzip -d > supabase/schema.sql
+          cat .release/v03/docs.part1 | base64 -d | gzip -d > docs/PERSISTENCE.md
+          cat .release/v03/pkg.part1 | base64 -d | gzip -d > package.json
+          node --check server.mjs
+          node - <<'NODE'
+          const fs=require('fs');
+          const html=fs.readFileSync('public/index.html','utf8');
+          const m=html.match(/<script>([\s\S]*?)<\/script>/);
+          if (!m) throw new Error('script block missing');
+          new Function(m[1]);
+          NODE
+          grep -q "version: '0.3.0'" server.mjs
+          grep -q "Economic archetype" public/index.html
+          grep -q "vs_simulation_runs" supabase/schema.sql
+      - name: Commit VS v0.3
+        shell: bash
+        run: |
+          git config user.name "metatility-vs-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add server.mjs public/index.html package.json supabase/schema.sql docs/PERSISTENCE.md
+          git commit -m "Add archetype simulation engine and persistence contract"
+          git push
