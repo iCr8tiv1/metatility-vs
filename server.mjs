@@ -37,6 +37,94 @@ const SCORE_DIMENSIONS = [
 
 const defaultScores = () => Object.fromEntries(SCORE_DIMENSIONS.map((d) => [d.key, { score: 3, evidenceLevel: 'E0', note: '' }]));
 
+const SIMULATION_MODELS = {
+  saas: { label: 'SaaS / Subscription', unitLabel: 'account', fields: [
+    ['months','Months',24,1,60,1],['startingUnits','Starting accounts',0,0,1000000,1],['newUnitsPerMonth','New accounts / month',10,0,1000000,1],['revenuePerUnit','Monthly revenue / account',300,0,10000000,1],['attritionPct','Monthly churn %',2,0,95,0.1],['acquisitionCost','CAC / new account',500,0,10000000,1],['grossMarginPct','Gross margin %',80,0,100,1],['fixedMonthlyCost','Fixed monthly operating cost',10000,0,100000000,100]
+  ]},
+  platform: { label: 'Platform / Freemium', unitLabel: 'user', fields: [
+    ['months','Months',24,1,60,1],['startingUsers','Starting active users',0,0,100000000,1],['newUsersPerMonth','New users / month',500,0,100000000,1],['userChurnPct','Monthly user churn %',4,0,95,0.1],['paidConversionPct','Paid conversion %',8,0,100,0.1],['revenuePerPaidUser','Monthly revenue / paid user',35,0,1000000,1],['userAcquisitionCost','Acquisition cost / new user',8,0,1000000,0.1],['grossMarginPct','Gross margin %',82,0,100,1],['fixedMonthlyCost','Fixed monthly operating cost',25000,0,100000000,100]
+  ]},
+  marketplace: { label: 'Marketplace', unitLabel: 'buyer', fields: [
+    ['months','Months',24,1,60,1],['startingBuyers','Starting active buyers',0,0,100000000,1],['newBuyersPerMonth','New buyers / month',100,0,100000000,1],['buyerChurnPct','Monthly buyer churn %',5,0,95,0.1],['transactionsPerBuyer','Transactions / buyer / month',1.5,0,1000,0.1],['gmvPerTransaction','GMV / transaction',500,0,10000000,1],['takeRatePct','Marketplace take rate %',12,0,100,0.1],['variableCostPct','Variable cost as % of platform revenue',18,0,100,0.1],['buyerAcquisitionCost','CAC / new buyer',60,0,1000000,1],['fixedMonthlyCost','Fixed monthly operating cost',30000,0,100000000,100]
+  ]},
+  service: { label: 'Service Business', unitLabel: 'client', fields: [
+    ['months','Months',24,1,60,1],['startingClients','Starting active clients',0,0,1000000,1],['newClientsPerMonth','New clients / month',4,0,1000000,1],['clientChurnPct','Monthly client churn %',3,0,95,0.1],['projectsPerClient','Projects / client / month',1,0,100,0.1],['averageProjectRevenue','Average project revenue',5000,0,100000000,100],['directCostPct','Direct delivery cost %',55,0,100,1],['clientAcquisitionCost','CAC / new client',1000,0,10000000,10],['monthlyProjectCapacity','Delivery capacity / month',30,0,1000000,1],['fixedMonthlyCost','Fixed monthly operating cost',25000,0,100000000,100]
+  ]},
+  licensing: { label: 'Licensing / Royalty', unitLabel: 'licensee', fields: [
+    ['months','Months',36,1,60,1],['startingLicensees','Starting licensees',0,0,1000000,1],['newLicenseesPerMonth','New licensees / month',2,0,1000000,1],['licenseeChurnPct','Monthly licensee churn %',1.5,0,95,0.1],['annualLicenseFee','Annual license fee / licensee',24000,0,100000000,100],['monthlyRoyaltyPerLicensee','Monthly royalty / licensee',1000,0,100000000,100],['salesCostPerLicensee','Sales/acquisition cost / new licensee',5000,0,100000000,100],['grossMarginPct','Gross margin %',90,0,100,1],['fixedMonthlyCost','Fixed monthly operating cost',20000,0,100000000,100]
+  ]},
+  asset: { label: 'Asset-Heavy / Infrastructure', unitLabel: 'asset', fields: [
+    ['months','Months',36,1,60,1],['startingAssets','Starting deployed assets',0,0,1000000,1],['newAssetsPerMonth','New assets deployed / month',2,0,1000000,1],['assetAttritionPct','Monthly asset attrition %',0.5,0,95,0.1],['utilizationPct','Utilization %',65,0,100,1],['revenuePerActiveAsset','Monthly revenue / utilized asset',5000,0,100000000,100],['variableCostPerActiveAsset','Monthly variable cost / utilized asset',1500,0,100000000,100],['capexPerNewAsset','Capex / new asset',50000,0,1000000000,100],['fixedMonthlyCost','Fixed monthly operating cost',30000,0,100000000,100]
+  ]},
+  commerce: { label: 'Commerce / Product Sales', unitLabel: 'customer', fields: [
+    ['months','Months',24,1,60,1],['startingCustomers','Starting active customers',0,0,100000000,1],['newCustomersPerMonth','New customers / month',100,0,100000000,1],['customerChurnPct','Monthly customer churn %',12,0,95,0.1],['ordersPerCustomer','Orders / customer / month',1.2,0,100,0.1],['averageOrderValue','Average order value',150,0,10000000,1],['grossMarginPct','Gross margin %',45,0,100,1],['customerAcquisitionCost','CAC / new customer',40,0,1000000,1],['fixedMonthlyCost','Fixed monthly operating cost',20000,0,100000000,100]
+  ]},
+  generic: { label: 'Generic Recurring Unit', unitLabel: 'unit', fields: [
+    ['months','Months',24,1,60,1],['startingUnits','Starting active units',0,0,100000000,1],['newUnitsPerMonth','New units / month',10,0,100000000,1],['revenuePerUnit','Monthly revenue / unit',300,0,10000000,1],['attritionPct','Monthly attrition %',2,0,95,0.1],['acquisitionCost','Acquisition cost / new unit',500,0,10000000,1],['grossMarginPct','Gross margin %',75,0,100,1],['fixedMonthlyCost','Fixed monthly operating cost',10000,0,100000000,100]
+  ]}
+};
+
+function inferModel(type = '') {
+  const t = String(type).toLowerCase();
+  if (t.includes('market')) return 'marketplace';
+  if (t.includes('saas') || t.includes('subscription')) return 'saas';
+  if (t.includes('service')) return 'service';
+  if (t.includes('licens') || t.includes('royalt') || t.includes('asset / licens')) return 'licensing';
+  if (t.includes('asset') || t.includes('infrastructure')) return 'asset';
+  if (t.includes('commerce') || t.includes('product')) return 'commerce';
+  if (t.includes('platform') || t.includes('data / intelligence')) return 'platform';
+  return 'generic';
+}
+
+function starterAssumptions(modelType) {
+  const common = [
+    ['Target users experience the problem frequently enough to change behavior.', 'Problem', 5, 1, 1],
+    ['The proposed solution is materially better than the current alternative.', 'Solution', 4, 1, 2]
+  ];
+  const specific = {
+    saas: [
+      ['The buyer will pay enough recurring revenue to support acquisition and service costs.', 'Economics', 5, 1, 2],
+      ['Customers will retain long enough for lifetime gross profit to exceed acquisition cost.', 'Retention', 5, 1, 2],
+      ['A repeatable channel can acquire qualified accounts at an acceptable CAC.', 'Distribution', 5, 1, 2]
+    ],
+    platform: [
+      ['The platform can acquire enough active users to create repeated utility.', 'Adoption', 5, 1, 2],
+      ['A meaningful share of active users will convert to monetized behavior.', 'Economics', 5, 1, 2],
+      ['User acquisition and retention can compound faster than platform operating cost.', 'Distribution', 5, 1, 2]
+    ],
+    marketplace: [
+      ['The marketplace can reach sufficient buyer and supply liquidity in a narrow starting market.', 'Liquidity', 5, 1, 2],
+      ['Participants will accept a take rate large enough to support marketplace operations.', 'Economics', 5, 1, 2],
+      ['Demand can be acquired without transaction contribution being consumed by CAC.', 'Distribution', 5, 1, 2]
+    ],
+    service: [
+      ['Direct delivery cost leaves enough gross profit to support overhead and owner/operator economics.', 'Economics', 5, 1, 2],
+      ['Delivery capacity can grow without quality collapsing or founder dependency increasing.', 'Operations', 5, 1, 2],
+      ['Qualified clients can be acquired consistently at an acceptable cost.', 'Distribution', 4, 1, 2]
+    ],
+    licensing: [
+      ['The licensed asset, IP, or data creates enough economic value to command recurring fees.', 'Economics', 5, 1, 2],
+      ['Licensees will renew because switching or replacement destroys meaningful value.', 'Retention', 5, 1, 2],
+      ['The licensor can protect and enforce the differentiated asset or rights being sold.', 'Defensibility', 5, 1, 2]
+    ],
+    asset: [
+      ['Utilization will be high enough for each deployed asset to earn an acceptable return on capital.', 'Economics', 5, 1, 2],
+      ['Capital requirements can be financed without constraining growth or destroying returns.', 'Capital', 5, 1, 2],
+      ['Operational uptime and maintenance requirements can be controlled at scale.', 'Operations', 5, 1, 2]
+    ],
+    commerce: [
+      ['Gross profit per order and repeat purchase behavior can absorb customer acquisition cost.', 'Economics', 5, 1, 2],
+      ['Customers will repurchase frequently enough to create attractive lifetime value.', 'Retention', 5, 1, 2],
+      ['The product can be distributed at scale without margin erosion from channels or fulfillment.', 'Distribution', 5, 1, 2]
+    ],
+    generic: [
+      ['The economic buyer will pay enough to support the business model.', 'Economics', 5, 1, 2],
+      ['A repeatable distribution channel can reach qualified buyers.', 'Distribution', 5, 1, 2]
+    ]
+  };
+  return [...common, ...(specific[modelType] || specific.generic)];
+}
+
 const demoConcept = {
   id: 'concept_demo',
   name: 'Sample Platform Concept',
@@ -52,7 +140,8 @@ const demoConcept = {
   advantage: 'Structured data, embedded workflow, and accumulated institutional learning.',
   whyNow: 'Technology and buyer behavior make the workflow easier to consolidate than before.',
   objective: 'Determine whether the concept deserves additional time, capital, and operator attention.',
-  unitLabel: 'customer',
+  unitLabel: 'user',
+  modelType: 'platform',
   createdAt: new Date().toISOString()
 };
 
@@ -142,6 +231,8 @@ function scorecardView(s, conceptId) {
 }
 
 function conceptView(s, concept) {
+  concept.modelType ||= inferModel(concept.type);
+  concept.unitLabel ||= SIMULATION_MODELS[concept.modelType]?.unitLabel || 'unit';
   const assumptions = (s.assumptions || []).filter((x) => x.conceptId === concept.id).map((x) => ({ ...x, priority: priority(x) })).sort((a, b) => b.priority - a.priority);
   const evidence = (s.evidence || []).filter((x) => x.conceptId === concept.id);
   const experiments = (s.experiments || []).filter((x) => x.conceptId === concept.id);
@@ -161,45 +252,167 @@ function conceptView(s, concept) {
   };
 }
 
+function n(input, key, fallback) { const v = Number(input[key]); return Number.isFinite(v) ? v : fallback; }
+function bounded(v, min, max) { return Math.max(min, Math.min(max, v)); }
+
+function simulationDiagnostics(modelType, b) {
+  if (modelType === 'saas') {
+    const gm = b.revenuePerUnit * (b.grossMarginPct / 100);
+    const monthlyChurn = Math.max(0.001, b.attritionPct / 100);
+    const ltv = gm / monthlyChurn;
+    const payback = gm > 0 ? b.acquisitionCost / gm : null;
+    return [
+      ['Gross profit / account / month', gm],
+      ['Approx. gross-profit LTV', ltv],
+      ['Approx. LTV / CAC', b.acquisitionCost > 0 ? ltv / b.acquisitionCost : null],
+      ['CAC payback months', payback]
+    ];
+  }
+  if (modelType === 'platform') {
+    const effectiveArpu = (b.paidConversionPct / 100) * b.revenuePerPaidUser;
+    const gpUser = effectiveArpu * (b.grossMarginPct / 100);
+    return [
+      ['Effective revenue / active user / month', effectiveArpu],
+      ['Gross profit / active user / month', gpUser],
+      ['Paid conversion %', b.paidConversionPct],
+      ['User acquisition payback months', gpUser > 0 ? b.userAcquisitionCost / gpUser : null]
+    ];
+  }
+  if (modelType === 'marketplace') {
+    const gmvBuyer = b.transactionsPerBuyer * b.gmvPerTransaction;
+    const revenueBuyer = gmvBuyer * (b.takeRatePct / 100);
+    const gpBuyer = revenueBuyer * (1 - b.variableCostPct / 100);
+    return [
+      ['GMV / active buyer / month', gmvBuyer],
+      ['Platform revenue / active buyer / month', revenueBuyer],
+      ['Contribution / active buyer / month', gpBuyer],
+      ['CAC payback months', gpBuyer > 0 ? b.buyerAcquisitionCost / gpBuyer : null]
+    ];
+  }
+  if (modelType === 'service') {
+    const gpProject = b.averageProjectRevenue * (1 - b.directCostPct / 100);
+    const theoreticalRevenue = b.monthlyProjectCapacity * b.averageProjectRevenue;
+    return [
+      ['Gross profit / project', gpProject],
+      ['Monthly revenue at stated capacity', theoreticalRevenue],
+      ['Direct delivery cost %', b.directCostPct],
+      ['CAC / gross profit on one project', gpProject > 0 ? b.clientAcquisitionCost / gpProject : null]
+    ];
+  }
+  if (modelType === 'licensing') {
+    const rev = b.annualLicenseFee / 12 + b.monthlyRoyaltyPerLicensee;
+    const gp = rev * (b.grossMarginPct / 100);
+    return [
+      ['Revenue / licensee / month', rev],
+      ['Gross profit / licensee / month', gp],
+      ['Sales cost payback months', gp > 0 ? b.salesCostPerLicensee / gp : null],
+      ['Monthly licensee churn %', b.licenseeChurnPct]
+    ];
+  }
+  if (modelType === 'asset') {
+    const contribution = b.revenuePerActiveAsset - b.variableCostPerActiveAsset;
+    const utilizedContribution = contribution * (b.utilizationPct / 100);
+    return [
+      ['Contribution / utilized asset / month', contribution],
+      ['Expected contribution / deployed asset / month', utilizedContribution],
+      ['Simple capex payback months', utilizedContribution > 0 ? b.capexPerNewAsset / utilizedContribution : null],
+      ['Utilization %', b.utilizationPct]
+    ];
+  }
+  if (modelType === 'commerce') {
+    const gpOrder = b.averageOrderValue * (b.grossMarginPct / 100);
+    const gpCustomer = gpOrder * b.ordersPerCustomer;
+    return [
+      ['Gross profit / order', gpOrder],
+      ['Gross profit / active customer / month', gpCustomer],
+      ['CAC payback months', gpCustomer > 0 ? b.customerAcquisitionCost / gpCustomer : null],
+      ['Orders / customer / month', b.ordersPerCustomer]
+    ];
+  }
+  const gm = b.revenuePerUnit * (b.grossMarginPct / 100);
+  return [['Gross profit / active unit / month', gm], ['CAC payback months', gm > 0 ? b.acquisitionCost / gm : null]];
+}
+
 function simulate(input) {
-  const months = Math.max(1, Math.min(60, Number(input.months || 24)));
-  const base = {
-    startingUnits: Number(input.startingUnits || 0),
-    newUnitsPerMonth: Number(input.newUnitsPerMonth || 10),
-    revenuePerUnit: Number(input.revenuePerUnit || 300),
-    attritionPct: Number(input.attritionPct || 2),
-    acquisitionCost: Number(input.acquisitionCost || 500),
-    grossMarginPct: Number(input.grossMarginPct || 75),
-    fixedMonthlyCost: Number(input.fixedMonthlyCost || 10000)
-  };
+  const modelType = SIMULATION_MODELS[input.modelType] ? input.modelType : 'generic';
+  const model = SIMULATION_MODELS[modelType];
+  const months = bounded(n(input, 'months', model.fields.find((f) => f[0] === 'months')?.[2] || 24), 1, 60);
+  const b = Object.fromEntries(model.fields.map(([key, , fallback]) => [key, n(input, key, fallback)]));
+  b.months = months;
   const scenarios = [
-    { name: 'Conservative', newMult: 0.70, revenueMult: 0.90, attritionMult: 1.30, cacMult: 1.30, marginDelta: -8 },
-    { name: 'Base', newMult: 1, revenueMult: 1, attritionMult: 1, cacMult: 1, marginDelta: 0 },
-    { name: 'Upside', newMult: 1.30, revenueMult: 1.10, attritionMult: 0.70, cacMult: 0.80, marginDelta: 5 }
+    { name: 'Conservative', demand: 0.70, price: 0.90, attrition: 1.30, cac: 1.30, marginDelta: -8, conversion: 0.80, utilization: 0.85 },
+    { name: 'Base', demand: 1, price: 1, attrition: 1, cac: 1, marginDelta: 0, conversion: 1, utilization: 1 },
+    { name: 'Upside', demand: 1.30, price: 1.10, attrition: 0.70, cac: 0.80, marginDelta: 5, conversion: 1.15, utilization: 1.10 }
   ];
+
   const results = scenarios.map((sc) => {
-    let units = base.startingUnits;
-    let cumulativeCash = 0;
-    let breakEvenMonth = null;
-    const rows = [];
+    let cumulativeCash = 0; let breakEvenMonth = null; let capitalDeployed = 0; const rows = [];
+    let units = b.startingUnits || b.startingUsers || b.startingBuyers || b.startingClients || b.startingLicensees || b.startingAssets || b.startingCustomers || 0;
     for (let month = 1; month <= months; month++) {
-      const newUnits = base.newUnitsPerMonth * sc.newMult;
-      const attrition = Math.min(0.95, (base.attritionPct * sc.attritionMult) / 100);
-      const revenuePerUnit = base.revenuePerUnit * sc.revenueMult;
-      const gm = Math.max(0, Math.min(1, (base.grossMarginPct + sc.marginDelta) / 100));
-      const cac = base.acquisitionCost * sc.cacMult;
-      units = Math.max(0, units * (1 - attrition) + newUnits);
-      const revenue = units * revenuePerUnit;
-      const grossProfit = revenue * gm;
-      const acquisitionSpend = newUnits * cac;
-      const operatingProfit = grossProfit - acquisitionSpend - base.fixedMonthlyCost;
-      cumulativeCash += operatingProfit;
-      if (breakEvenMonth === null && operatingProfit >= 0) breakEvenMonth = month;
-      rows.push({ month, units: +units.toFixed(1), revenue: +revenue.toFixed(0), operatingProfit: +operatingProfit.toFixed(0), cumulativeCash: +cumulativeCash.toFixed(0) });
+      let revenue = 0, operatingProfit = 0, extra = {}, acquisitionSpend = 0, freeCash = 0;
+      if (modelType === 'saas' || modelType === 'generic') {
+        const newUnits = b.newUnitsPerMonth * sc.demand; const churn = bounded((b.attritionPct * sc.attrition) / 100, 0, 0.95);
+        units = Math.max(0, units * (1 - churn) + newUnits);
+        revenue = units * b.revenuePerUnit * sc.price;
+        const grossProfit = revenue * bounded((b.grossMarginPct + sc.marginDelta) / 100, 0, 1);
+        acquisitionSpend = newUnits * b.acquisitionCost * sc.cac;
+        operatingProfit = grossProfit - acquisitionSpend - b.fixedMonthlyCost; freeCash = operatingProfit;
+      } else if (modelType === 'platform') {
+        const newUsers = b.newUsersPerMonth * sc.demand; const churn = bounded((b.userChurnPct * sc.attrition) / 100, 0, 0.95);
+        units = Math.max(0, units * (1 - churn) + newUsers);
+        const paidUsers = units * bounded((b.paidConversionPct * sc.conversion) / 100, 0, 1);
+        revenue = paidUsers * b.revenuePerPaidUser * sc.price;
+        const grossProfit = revenue * bounded((b.grossMarginPct + sc.marginDelta) / 100, 0, 1);
+        acquisitionSpend = newUsers * b.userAcquisitionCost * sc.cac;
+        operatingProfit = grossProfit - acquisitionSpend - b.fixedMonthlyCost; freeCash = operatingProfit; extra = { paidUsers: +paidUsers.toFixed(1) };
+      } else if (modelType === 'marketplace') {
+        const newBuyers = b.newBuyersPerMonth * sc.demand; const churn = bounded((b.buyerChurnPct * sc.attrition) / 100, 0, 0.95);
+        units = Math.max(0, units * (1 - churn) + newBuyers);
+        const transactions = units * b.transactionsPerBuyer * sc.demand;
+        const gmv = transactions * b.gmvPerTransaction * sc.price;
+        revenue = gmv * (b.takeRatePct / 100);
+        const contribution = revenue * (1 - bounded(b.variableCostPct / 100, 0, 1));
+        acquisitionSpend = newBuyers * b.buyerAcquisitionCost * sc.cac;
+        operatingProfit = contribution - acquisitionSpend - b.fixedMonthlyCost; freeCash = operatingProfit; extra = { transactions: +transactions.toFixed(1), gmv: +gmv.toFixed(0) };
+      } else if (modelType === 'service') {
+        const newClients = b.newClientsPerMonth * sc.demand; const churn = bounded((b.clientChurnPct * sc.attrition) / 100, 0, 0.95);
+        units = Math.max(0, units * (1 - churn) + newClients);
+        const demandedProjects = units * b.projectsPerClient * sc.demand; const capacity = b.monthlyProjectCapacity; const projects = Math.min(demandedProjects, capacity);
+        revenue = projects * b.averageProjectRevenue * sc.price;
+        const grossProfit = revenue * (1 - bounded((b.directCostPct - sc.marginDelta) / 100, 0, 1));
+        acquisitionSpend = newClients * b.clientAcquisitionCost * sc.cac;
+        operatingProfit = grossProfit - acquisitionSpend - b.fixedMonthlyCost; freeCash = operatingProfit; extra = { projects: +projects.toFixed(1), capacityUtilizationPct: capacity > 0 ? +((projects / capacity) * 100).toFixed(1) : null };
+      } else if (modelType === 'licensing') {
+        const newLicensees = b.newLicenseesPerMonth * sc.demand; const churn = bounded((b.licenseeChurnPct * sc.attrition) / 100, 0, 0.95);
+        units = Math.max(0, units * (1 - churn) + newLicensees);
+        const monthlyRevenuePer = (b.annualLicenseFee / 12 + b.monthlyRoyaltyPerLicensee) * sc.price;
+        revenue = units * monthlyRevenuePer;
+        const grossProfit = revenue * bounded((b.grossMarginPct + sc.marginDelta) / 100, 0, 1);
+        acquisitionSpend = newLicensees * b.salesCostPerLicensee * sc.cac;
+        operatingProfit = grossProfit - acquisitionSpend - b.fixedMonthlyCost; freeCash = operatingProfit;
+      } else if (modelType === 'asset') {
+        const newAssets = b.newAssetsPerMonth * sc.demand; const attrition = bounded((b.assetAttritionPct * sc.attrition) / 100, 0, 0.95);
+        units = Math.max(0, units * (1 - attrition) + newAssets);
+        const utilization = bounded((b.utilizationPct * sc.utilization) / 100, 0, 1); const activeAssets = units * utilization;
+        revenue = activeAssets * b.revenuePerActiveAsset * sc.price;
+        const variableCost = activeAssets * b.variableCostPerActiveAsset;
+        operatingProfit = revenue - variableCost - b.fixedMonthlyCost;
+        const capex = newAssets * b.capexPerNewAsset; capitalDeployed += capex; freeCash = operatingProfit - capex; extra = { activeAssets: +activeAssets.toFixed(1), capex: +capex.toFixed(0), capitalDeployed: +capitalDeployed.toFixed(0) };
+      } else if (modelType === 'commerce') {
+        const newCustomers = b.newCustomersPerMonth * sc.demand; const churn = bounded((b.customerChurnPct * sc.attrition) / 100, 0, 0.95);
+        units = Math.max(0, units * (1 - churn) + newCustomers);
+        const orders = units * b.ordersPerCustomer * sc.demand; revenue = orders * b.averageOrderValue * sc.price;
+        const grossProfit = revenue * bounded((b.grossMarginPct + sc.marginDelta) / 100, 0, 1);
+        acquisitionSpend = newCustomers * b.customerAcquisitionCost * sc.cac;
+        operatingProfit = grossProfit - acquisitionSpend - b.fixedMonthlyCost; freeCash = operatingProfit; extra = { orders: +orders.toFixed(1) };
+      }
+      cumulativeCash += freeCash; if (breakEvenMonth === null && operatingProfit >= 0) breakEvenMonth = month;
+      rows.push({ month, units: +units.toFixed(1), revenue: +revenue.toFixed(0), operatingProfit: +operatingProfit.toFixed(0), freeCash: +freeCash.toFixed(0), cumulativeCash: +cumulativeCash.toFixed(0), ...extra });
     }
-    return { name: sc.name, summary: { endingUnits: rows.at(-1).units, endingMonthlyRevenue: rows.at(-1).revenue, endingOperatingProfit: rows.at(-1).operatingProfit, cumulativeCash: rows.at(-1).cumulativeCash, breakEvenMonth }, rows };
+    const last = rows.at(-1);
+    return { name: sc.name, summary: { endingUnits: last.units, endingMonthlyRevenue: last.revenue, endingOperatingProfit: last.operatingProfit, cumulativeCash: last.cumulativeCash, breakEvenMonth, ...(last.gmv !== undefined ? { endingGMV: last.gmv } : {}), ...(last.paidUsers !== undefined ? { endingPaidUsers: last.paidUsers } : {}), ...(last.capacityUtilizationPct !== undefined ? { endingCapacityUtilizationPct: last.capacityUtilizationPct } : {}), ...(last.capitalDeployed !== undefined ? { capitalDeployed: last.capitalDeployed } : {}), ...(last.orders !== undefined ? { endingOrders: last.orders } : {}) }, rows };
   });
-  return { kind: 'simulation', warning: 'Illustrative scenario model only. Simulation output is never treated as observed evidence.', input: base, months, scenarios: results };
+  return { kind: 'simulation', modelType, modelLabel: model.label, unitLabel: model.unitLabel, warning: 'Illustrative scenario model only. Simulation output is never treated as observed evidence.', input: b, months, diagnostics: simulationDiagnostics(modelType, b), scenarios: results };
 }
 
 function redTeam(view) {
@@ -213,6 +426,18 @@ function redTeam(view) {
   if (low('economics', 2)) findings.push({ severity: 'high', title: 'Unit economics risk', detail: 'The current economic structure needs redesign or stronger evidence before scaling.' });
   if (low('defensibility', 2) && view.concept.type === 'Platform') findings.push({ severity: 'medium', title: 'Platform without compounding advantage', detail: 'Platforms become more durable when data, workflow, network effects, or switching costs strengthen with use.' });
   if (low('utility', 2) || low('function', 2)) findings.push({ severity: 'high', title: 'AFU mismatch', detail: 'Aesthetics cannot rescue weak utility or function. Improve the job-to-be-done before polishing the surface.' });
+  const modelType = view.concept.modelType || inferModel(view.concept.type);
+  if (modelType === 'marketplace') {
+    if (low('distribution', 3)) findings.push({ severity: 'high', title: 'Marketplace liquidity risk', detail: 'Marketplaces fail before network effects matter when either side cannot be concentrated enough to create reliable transaction liquidity.' });
+    if (low('defensibility', 3)) findings.push({ severity: 'medium', title: 'Network effect not yet demonstrated', detail: 'A marketplace is not defensible merely because it has two sides. Advantage must strengthen as participation and transaction history accumulate.' });
+  }
+  if (modelType === 'saas' && low('economics', 3)) findings.push({ severity: 'high', title: 'Recurring revenue does not guarantee good SaaS economics', detail: 'Retention, gross margin, CAC, and expansion must work together; subscription pricing alone does not create software-quality economics.' });
+  if (modelType === 'platform' && low('utility', 3)) findings.push({ severity: 'high', title: 'Platform breadth may be ahead of core utility', detail: 'Platforms should earn expansion by first owning a high-frequency job or workflow.' });
+  if (modelType === 'service' && (low('operator', 3) || low('function', 3))) findings.push({ severity: 'medium', title: 'Delivery system may not scale', detail: 'Service businesses often fail economically when quality depends on founder judgment or labor that cannot be standardized.' });
+  if (modelType === 'licensing' && low('defensibility', 3)) findings.push({ severity: 'high', title: 'Licensing needs protectable differentiated value', detail: 'If the licensed asset, data, rights, or IP can be easily substituted, renewal economics and pricing power weaken quickly.' });
+  if (modelType === 'asset' && (low('economics', 3) || low('feasibility', 3))) findings.push({ severity: 'high', title: 'Capital intensity needs explicit return discipline', detail: 'Asset-heavy models should be judged on utilization, cash yield, payback, maintenance, financing, and downside residual value—not revenue growth alone.' });
+  if (modelType === 'commerce' && low('economics', 3)) findings.push({ severity: 'high', title: 'Commerce margin may be consumed by acquisition and fulfillment', detail: 'Gross margin, repeat purchase, returns, fulfillment, and CAC must be modeled together.' });
+
   const highScoreLowProof = view.scorecard.dimensions.filter((d) => d.score >= 4 && weakEvidence(d.key));
   if (highScoreLowProof.length >= 3) findings.push({ severity: 'medium', title: 'Confidence outruns evidence', detail: `${highScoreLowProof.length} highly rated dimensions are still supported only by opinion or secondary research.` });
   if (view.metrics.criticalUnknowns >= 4) findings.push({ severity: 'medium', title: 'Too many critical unknowns', detail: `${view.metrics.criticalUnknowns} high-consequence assumptions remain unresolved.` });
@@ -227,7 +452,7 @@ async function api(req, res, url) {
   const s = await load();
   if (req.method === 'GET' && url.pathname === '/api/state') {
     const concepts = s.concepts.map((c) => conceptView(s, c));
-    return sendJson(res, 200, { concepts, evidenceLevels: EVIDENCE, scoreDimensions: SCORE_DIMENSIONS });
+    return sendJson(res, 200, { concepts, evidenceLevels: EVIDENCE, scoreDimensions: SCORE_DIMENSIONS, simulationModels: SIMULATION_MODELS });
   }
   if (req.method === 'GET' && url.pathname === '/api/is-feed') return sendJson(res, 200, { schemaVersion: '1.1', sourceSystem: 'metatility-vs', events: s.events });
   if (req.method === 'GET' && url.pathname === '/api/is-feed.ndjson') {
@@ -241,16 +466,11 @@ async function api(req, res, url) {
       id: uid('concept'), name: x.name, type: x.type, stage: x.stage || 'Idea / Thesis', status: 'Exploring',
       oneLiner: x.oneLiner || '', problem: x.problem || '', customer: x.customer || '', solution: x.solution || '',
       businessModel: x.businessModel || '', distribution: x.distribution || '', advantage: x.advantage || '', whyNow: x.whyNow || '',
-      objective: x.objective || 'Determine whether this concept deserves more resources.', unitLabel: x.unitLabel || 'customer', createdAt: new Date().toISOString()
+      objective: x.objective || 'Determine whether this concept deserves more resources.', modelType: SIMULATION_MODELS[x.modelType] ? x.modelType : inferModel(x.type), unitLabel: x.unitLabel || SIMULATION_MODELS[SIMULATION_MODELS[x.modelType] ? x.modelType : inferModel(x.type)]?.unitLabel || 'unit', createdAt: new Date().toISOString()
     };
     s.concepts.push(c);
     s.scorecards.push({ conceptId: c.id, dimensions: defaultScores(), updatedAt: new Date().toISOString() });
-    const starters = [
-      ['Target users experience this problem frequently enough to change behavior.', 'Problem', 5, 1, 1],
-      ['The economic buyer will pay enough to support the business model.', 'Economics', 5, 1, 2],
-      ['A repeatable distribution channel can reach qualified buyers.', 'Distribution', 5, 1, 2],
-      ['The proposed solution is materially better than the current alternative.', 'Solution', 4, 1, 2]
-    ];
+    const starters = starterAssumptions(c.modelType);
     for (const [title, category, impactIfFalse, confidence, testCost] of starters) s.assumptions.push({ id: uid('asm'), conceptId: c.id, title, category, impactIfFalse, confidence, testCost, evidenceLevel: 'E0', status: 'unknown' });
     s.events.push(institutionalEvent('concept.created', 'concept', c.id, c));
     await save(s); return sendJson(res, 201, conceptView(s, c));
@@ -308,7 +528,7 @@ const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
     if (url.pathname.startsWith('/api/')) return await api(req, res, url);
-    if (url.pathname === '/health') return sendJson(res, 200, { ok: true, system: 'metatility-vs', version: '0.2.0' });
+    if (url.pathname === '/health') return sendJson(res, 200, { ok: true, system: 'metatility-vs', version: '0.3.0' });
     if (url.pathname === '/') {
       const html = await readFile(new URL('./public/index.html', ROOT));
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' }); return res.end(html);
