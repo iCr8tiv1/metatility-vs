@@ -17,6 +17,7 @@ function cors(req: Request) {
 
 const sourceMap: Record<string, { table: string; type: string }> = {
   "concept.created": { table: "vs_concepts", type: "concept" },
+  "concept.updated": { table: "vs_concepts", type: "concept" },
   "experiment.created": { table: "vs_experiments", type: "experiment" },
   "evidence.recorded": { table: "vs_evidence", type: "evidence" },
   "assumption.status_changed": { table: "vs_assumptions", type: "assumption" },
@@ -64,7 +65,11 @@ Deno.serve(async (req) => {
 
   if (spec.type === "concept") Object.assign(payload, {
     name: row.name, type: row.type, model_type: row.model_type, stage: row.stage,
-    status: row.status, one_liner: row.one_liner
+    status: row.status, one_liner: row.one_liner,
+    problem: row.problem, customer: row.customer, solution: row.solution,
+    business_model: row.business_model, distribution: row.distribution,
+    advantage: row.advantage, why_now: row.why_now, objective: row.objective,
+    intake: row.intake ?? {}
   });
   if (spec.type === "experiment") Object.assign(payload, {
     assumption_id: row.assumption_id, hypothesis: row.hypothesis, method: row.method,
