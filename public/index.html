@@ -12,7 +12,7 @@
 </style>
 </head>
 <body>
-<header class="top"><div class="brand"><div class="mark">VS</div><div><b>Metatility Venture Systems</b><div class="sub">Concept Simulation Lab · Persistent Mode</div></div></div><div class="top-actions"><span class="sync"><span class="dot"></span>Supabase</span><button class="btn secondary" id="newConceptTop">New concept</button><button class="btn secondary" id="signOut">Sign out</button></div></header>
+<header class="top"><div class="brand"><div class="mark">VS</div><div><b>Metatility Venture Systems</b><div class="sub">Concept Simulation Lab · Persistent + Exchange Mode</div></div></div><div class="top-actions"><span class="sync"><span class="dot"></span>Supabase</span><button class="btn secondary" id="newConceptTop">New concept</button><button class="btn secondary" id="signOut">Sign out</button></div></header>
 <div class="shell"><aside><div class="mini">Concept</div><select id="conceptSwitch" class="concept-switch"></select><div class="mini">Workspace</div><div class="nav" id="nav"></div></aside><main>
 <section id="overview" class="section active"></section><section id="portfolio" class="section"></section><section id="architecture" class="section"></section><section id="scorecard" class="section"></section><section id="assumptions" class="section"></section><section id="experiments" class="section"></section><section id="evidence" class="section"></section><section id="simulator" class="section"></section><section id="decisions" class="section"></section><section id="isfeed" class="section"></section>
 </main></div>
@@ -64,7 +64,77 @@ function simulate(inp,model,mult=1){let units=Number(inp.units||0),revenue=0,pro
 function renderSimulator(){const c=cv(),el=$('#simulator');if(!c){el.innerHTML=noConcept();return}const d=simDefaults(c.model_type),last=list('simulations')[0];el.innerHTML=hero('Business Simulator','Model outcomes by business archetype. Simulation remains separate from evidence.')+`<div class="grid"><div class="card"><h2>${esc(MODEL_LABELS[c.model_type]||c.model_type)} inputs</h2><form class="form" id="simForm"><div class="two"><label>Starting units<input name="units" type="number" value="${d.units}"></label><label>Monthly growth %<input name="growth" type="number" step=".1" value="${d.growth}"></label></div><div class="two"><label>Revenue per unit / transaction<input name="price" type="number" step=".01" value="${d.price}"></label><label>Variable cost %<input name="variable" type="number" step=".1" value="${d.variable}"></label></div><div class="two"><label>Monthly churn / attrition %<input name="churn" type="number" step=".1" value="${d.churn}"></label><label>Acquisition cost<input name="cac" type="number" step=".01" value="${d.cac}"></label></div><label>Fixed monthly cost<input name="fixed" type="number" step=".01" value="${d.fixed}"></label>${c.model_type==='marketplace'?`<label>Take rate %<input name="take" type="number" step=".1" value="${d.take}"></label>`:''}${c.model_type==='platform'?`<label>Paid conversion %<input name="conversion" type="number" step=".1" value="${d.conversion}"></label>`:''}${c.model_type==='asset'?`<div class="two"><label>Utilization %<input name="util" type="number" step=".1" value="${d.util}"></label><label>Initial capex<input name="capex" type="number" value="${d.capex}"></label></div>`:''}<button class="btn">Run scenarios</button></form></div><div class="card"><h2>Latest run</h2><div id="simResults">${last?scenarioCards(last.outputs):'<div class="empty">Run the simulator. Results are stored as simulation records, never evidence.</div>'}</div></div></div>`;$('#simForm').onsubmit=runSimulation}
 function scenarioCards(o){return `<div class="scenario">${['conservative','base','upside'].map(k=>`<div class="card"><span class="pill">${k}</span><p class="muted small">Annual revenue</p><b>$${Number(o[k]?.annual_revenue||0).toLocaleString()}</b><p class="muted small">Operating profit<br><b style="font-size:16px">$${Number(o[k]?.annual_operating_profit||0).toLocaleString()}</b></p></div>`).join('')}</div>`}
 function renderDecisions(){const el=$('#decisions');if(!cv()){el.innerHTML=noConcept();return}const d=list('decisions');el.innerHTML=hero('Decision Ledger','Preserve what was decided and why.')+`<div class="grid"><div class="card"><h2>History</h2>${d.length?d.map(x=>`<div class="list"><b>${esc(x.title)}</b><div>${esc(x.decision)}</div><div class="muted small">${esc(x.rationale)}</div></div>`).join(''):'<div class="empty">No decisions yet.</div>'}</div><div class="card"><h2>Record decision</h2><form class="form" id="decisionForm"><label>Title<input name="title" required></label><label>Decision<textarea name="decision" required></textarea></label><label>Rationale<textarea name="rationale"></textarea></label><label>Review condition<input name="review_condition"></label><button class="btn">Record decision</button></form></div></div>`;if($('#decisionForm'))$('#decisionForm').onsubmit=addDecision}
-function renderFeed(){const el=$('#isfeed');el.innerHTML=hero('IS Feed','Append-only institutional events ready for Metatility IS ingestion.')+`<div class="card"><div class="row"><h2>Event stream</h2><span class="pill">${state.events.length} events</span></div><div class="feed">${esc(state.events.length?state.events.map(e=>JSON.stringify(e,null,2)).join('\n\n'):'No events yet.')}</div></div>`}
+async function exchangeRequest(format='json'){
+  const path=format==='ndjson'?'/api/is-feed.ndjson':'/api/is-feed';
+  const doFetch=()=>fetch(path+'?limit=500',{headers:{Authorization:`Bearer ${session?.access_token||''}`}});
+  let r=await doFetch();
+  if(r.status===401&&await refreshSession())r=await doFetch();
+  const text=await r.text();
+  if(!r.ok){
+    let message=text;
+    try{message=JSON.parse(text)?.error||text}catch{}
+    throw new Error(message||`Exchange request failed (${r.status})`);
+  }
+  return {
+    format,
+    text,
+    eventCount:Number(r.headers.get('x-metatility-event-count')||0),
+    checksum:r.headers.get('x-metatility-feed-sha256')||'',
+    contract:r.headers.get('x-metatility-contract')||'vs-is-feed',
+    schemaVersion:r.headers.get('x-metatility-schema-version')||'1.1'
+  };
+}
+async function validateExchange(format='json'){
+  const status=$('#exchangeStatus'),out=$('#exchangeOutput');
+  if(!status||!out)return;
+  status.textContent='Validating…';
+  status.className='pill testing';
+  try{
+    const result=await exchangeRequest(format);
+    status.textContent=`Verified · ${result.eventCount} events`;
+    status.className='pill validated';
+    const body=format==='json'?JSON.stringify(JSON.parse(result.text),null,2):result.text;
+    out.textContent=body||'No institutional events yet.';
+    const meta=$('#exchangeMeta');
+    if(meta)meta.textContent=`Contract ${result.contract} · schema ${result.schemaVersion} · SHA-256 ${result.checksum.slice(0,16)}…`;
+  }catch(err){
+    status.textContent='Exchange error';
+    status.className='pill invalidated';
+    out.textContent=err.message;
+  }
+}
+function renderFeed(){
+  const el=$('#isfeed');
+  el.innerHTML=hero('VS → IS Exchange','Controlled institutional event feed. Simulation outputs are excluded by construction.')+
+  `<div class="grid">
+    <div class="card">
+      <div class="row"><h2>Exchange contract</h2><span class="pill validated">Protected</span></div>
+      <div class="stack">
+        <div class="item"><b>JSON feed</b><div class="muted small">GET /api/is-feed</div></div>
+        <div class="item"><b>NDJSON feed</b><div class="muted small">GET /api/is-feed.ndjson</div></div>
+        <div class="item"><b>Authorization</b><div class="muted small">Supabase bearer session + Row Level Security</div></div>
+        <div class="item"><b>Evidence boundary</b><div class="muted small">Concept, experiment, evidence, assumption-state and decision events may flow. Simulation events are excluded.</div></div>
+      </div>
+      <div class="row" style="margin-top:12px;justify-content:flex-start">
+        <button class="btn" id="validateExchange">Validate JSON exchange</button>
+        <button class="btn secondary" id="validateNdjson">Validate NDJSON</button>
+        <span id="exchangeStatus" class="pill">Not checked</span>
+      </div>
+      <div id="exchangeMeta" class="muted small" style="margin-top:9px">Contract not validated in this session.</div>
+    </div>
+    <div class="card">
+      <div class="row"><h2>Local event register</h2><span class="pill">${state.events.length} events</span></div>
+      <div class="muted small">This is the authenticated VS event register. The exchange endpoint canonicalizes it for IS ingestion.</div>
+      <div class="feed" style="margin-top:10px">${esc(state.events.length?state.events.map(e=>JSON.stringify(e,null,2)).join('\n\n'):'No events yet.')}</div>
+    </div>
+  </div>
+  <div class="card" style="margin-top:14px">
+    <div class="row"><h2>Exchange response</h2><span class="pill">Audit view</span></div>
+    <pre class="feed" id="exchangeOutput">Run Validate Exchange to inspect the live authenticated contract.</pre>
+  </div>`;
+  $('#validateExchange').onclick=()=>validateExchange('json');
+  $('#validateNdjson').onclick=()=>validateExchange('ndjson');
+}
 function renderAll(){switcher();renderOverview();renderPortfolio();renderArchitecture();renderScorecard();renderAssumptions();renderExperiments();renderEvidence();renderSimulator();renderDecisions();renderFeed()}
 function chooseConcept(id){current=id;renderAll();show('overview')}
 function openConcept(){$('#conceptModal').classList.add('open')}function closeConcept(){$('#conceptModal').classList.remove('open')}
