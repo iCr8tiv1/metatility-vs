@@ -1,0 +1,57 @@
+name: Apply VS v0.7 release
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  apply:
+    if: github.event.head_commit.message == 'Apply VS v0.7 release'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reconstruct and validate v0.7
+        shell: bash
+        run: |
+          gzip -dc .release/v07/v07.js.gz > public/v07.js
+          echo "86cc0351503256c696aa881ee10f1da52c092167fec061edb984ffc292478f18  public/v07.js" | sha256sum -c -
+          node --check public/v07.js
+          node - <<'NODE'
+          const fs=require('fs');
+          const path='public/index.html';
+          let html=fs.readFileSync(path,'utf8');
+          const m=html.match(/<script>([\s\S]*?)<\/script>/);
+          if(!m) throw new Error('inline app script missing');
+          new Function(m[1]);
+          if(!html.includes('<script src="/v07.js"></script>')){
+            html=html.replace('</body>','<script src="/v07.js"></script>\n</body>');
+          }
+          fs.writeFileSync(path,html);
+
+          const pkg=JSON.parse(fs.readFileSync('package.json','utf8'));
+          pkg.version='0.7.0';
+          fs.writeFileSync('package.json',JSON.stringify(pkg,null,2)+'\n');
+
+          let server=fs.readFileSync('server.mjs','utf8');
+          server=server
+            .replace(/version: '0\.6\.\d+'/,"version: '0.7.0'")
+            .replace(/Metatility VS v0\.6(?:\.\d+)? listening/g,'Metatility VS v0.7 listening');
+          fs.writeFileSync('server.mjs',server);
+          NODE
+          node --check server.mjs
+          grep -q 'Business Concept Evaluation Engine' public/v07.js
+          grep -q 'Fatal-assumption' public/v07.js
+          grep -q 'Sensitivity' public/v07.js
+          grep -q 'Decision Memo' public/v07.js
+          grep -q '"version": "0.7.0"' package.json
+          grep -q "version: '0.7.0'" server.mjs
+          test "$(grep -c '<script src="/v07.js"></script>' public/index.html)" -eq 1
+      - name: Commit validated v0.7
+        shell: bash
+        run: |
+          git config user.name "metatility-vs-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add public/v07.js public/index.html package.json server.mjs
+          git rm -f .release/v07/v07.part00 .release/v07/v07.part01 2>/dev/null || true
+          git commit -m "Release Metatility VS v0.7 concept evaluation engine"
+          git push
