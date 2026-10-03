@@ -1,0 +1,41 @@
+name: Apply VS v0.4 payload
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  apply:
+    if: github.event.head_commit.message == 'Apply VS v0.4 payload'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reconstruct VS v0.4
+        shell: bash
+        run: |
+          mkdir -p public supabase
+          cat .release/v04/index.part1 .release/v04/index.part2 .release/v04/index.part3 .release/v04/index.part4 .release/v04/index.part5 | base64 -d | gzip -d > public/index.html
+          cat .release/v04/server.part1 | base64 -d | gzip -d > server.mjs
+          cat .release/v04/pkg.part1 | base64 -d | gzip -d > package.json
+          cat .release/v04/schema.part1 | base64 -d | gzip -d > supabase/v04_hardening.sql
+          node --check server.mjs
+          node - <<'NODE'
+          const fs=require('fs');
+          const html=fs.readFileSync('public/index.html','utf8');
+          const m=html.match(/<script>([\s\S]*?)<\/script>/);
+          if (!m) throw new Error('script block missing');
+          new Function(m[1]);
+          if (!html.includes('Persistent Mode')) throw new Error('persistent UI marker missing');
+          if (!html.includes('dhwkaulzhrcebtrcchyl.supabase.co')) throw new Error('Supabase project wiring missing');
+          NODE
+          grep -q '"version": "0.4.0"' package.json
+          grep -q 'version:' server.mjs
+          grep -q 'vs_decision_evidence' supabase/v04_hardening.sql
+      - name: Commit VS v0.4
+        shell: bash
+        run: |
+          git config user.name "metatility-vs-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add server.mjs public/index.html package.json supabase/v04_hardening.sql
+          git commit -m "Persist Metatility VS with Supabase auth and data"
+          git push
