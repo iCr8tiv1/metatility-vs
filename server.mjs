@@ -126,7 +126,7 @@ async function institutionalFeed(req, res, format) {
       ? events.map((event) => JSON.stringify(event)).join('\n') + (events.length ? '\n' : '')
       : JSON.stringify({
           contract: 'metatility.vs-is-feed',
-          schema_version: '1.1',
+          schema_version: '1.2',
           source_system: 'metatility-vs',
           target_system: 'metatility-is',
           generated_at: generatedAt,
@@ -144,7 +144,7 @@ async function institutionalFeed(req, res, format) {
     'cache-control': 'no-store',
     'access-control-allow-origin': 'https://vs.metatility.io',
     'x-metatility-contract': 'vs-is-feed',
-    'x-metatility-schema-version': '1.1',
+    'x-metatility-schema-version': '1.2',
     'x-metatility-event-count': String(events.length),
     'x-metatility-feed-sha256': digest,
   });
@@ -159,7 +159,7 @@ const server = http.createServer(async (req, res) => {
       sendJson(res, 200, {
         ok: true,
         system: 'metatility-vs',
-        version: '0.5.0',
+        version: '0.6.0',
         persistence: 'supabase',
         exchange: 'vs-is-feed',
       });
@@ -194,5 +194,5 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, '0.0.0.0', () =>
-  console.log(`Metatility VS v0.5 listening on ${PORT}`)
+  console.log(`Metatility VS v0.6 listening on ${PORT}`)
 );
