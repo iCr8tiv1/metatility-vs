@@ -159,7 +159,7 @@ const server = http.createServer(async (req, res) => {
       sendJson(res, 200, {
         ok: true,
         system: 'metatility-vs',
-        version: '0.6.0',
+        version: '0.6.1',
         persistence: 'supabase',
         exchange: 'vs-is-feed',
       });
@@ -194,5 +194,5 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, '0.0.0.0', () =>
-  console.log(`Metatility VS v0.6 listening on ${PORT}`)
+  console.log(`Metatility VS v0.6.1 listening on ${PORT}`)
 );
