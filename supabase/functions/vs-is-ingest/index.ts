@@ -142,10 +142,14 @@ Deno.serve(async (req) => {
         });
       }
 
-      if (event.event_type === "concept.created") {
+      if (["concept.created", "concept.updated"].includes(event.event_type)) {
         await entity("concept", String(event.entity_id), p.name ?? null, {
           type: p.type, model_type: p.model_type, stage: p.stage,
-          status: p.status, one_liner: p.one_liner, provenance: p.provenance ?? null,
+          status: p.status, one_liner: p.one_liner,
+          problem: p.problem, customer: p.customer, solution: p.solution,
+          business_model: p.business_model, distribution: p.distribution,
+          advantage: p.advantage, why_now: p.why_now, objective: p.objective,
+          intake: p.intake ?? {}, provenance: p.provenance ?? null,
         });
       }
 
