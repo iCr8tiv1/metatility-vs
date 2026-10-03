@@ -16,7 +16,7 @@
 <div class="shell"><aside><div class="mini">Concept</div><select id="conceptSwitch" class="concept-switch"></select><div class="mini">Workspace</div><div class="nav" id="nav"></div></aside><main>
 <section id="overview" class="section active"></section><section id="portfolio" class="section"></section><section id="architecture" class="section"></section><section id="scorecard" class="section"></section><section id="assumptions" class="section"></section><section id="experiments" class="section"></section><section id="evidence" class="section"></section><section id="simulator" class="section"></section><section id="decisions" class="section"></section><section id="isfeed" class="section"></section>
 </main></div>
-<div class="auth" id="auth"><div class="authbox"><div class="mark">VS</div><h1>Metatility VS</h1><p class="muted">Persistent venture simulation and institutional evidence.</p><div class="error" id="authErr"></div><div class="success" id="authOk"></div><form class="form" id="authForm"><label>Email<input type="email" name="email" required autocomplete="email"></label><label>Password<input type="password" name="password" required minlength="8" autocomplete="current-password"></label><div class="two"><button class="btn" type="submit">Sign in</button><button class="btn secondary" type="button" id="signUp">Create account</button></div></form><p class="small muted">New accounts use Supabase email verification. After confirming the email, return here and sign in.</p></div></div>
+<div class="auth" id="auth"><div class="authbox"><div class="mark">VS</div><h1>Metatility VS</h1><p class="muted">Persistent venture simulation and institutional evidence.</p><div class="error" id="authErr"></div><div class="success" id="authOk"></div><form class="form" id="authForm"><label>Email<input type="email" name="email" required autocomplete="email"></label><label>Password<input type="password" name="password" required minlength="8" autocomplete="current-password"></label><div class="two"><button class="btn" type="submit">Sign in</button><button class="btn secondary" type="button" id="signUp">Create Metatility account</button></div></form><p class="small muted"><b>First visit?</b> Metatility VS has its own account system; credentials from NOLVANT, MetaSets, or other Supabase projects are not shared. Create an account here once. After email confirmation, VS will sign you in automatically.</p></div></div>
 <div class="modal" id="conceptModal"><div class="modalbox"><div class="modalhead"><h2 style="margin:0">New concept</h2><button class="x" id="closeConcept">×</button></div><form class="form" id="conceptForm"><div class="two"><label>Name<input name="name" required placeholder="e.g. TradeCasa Pro Network"></label><label>Concept type<select name="type"><option>Business</option><option>Platform</option><option>Product</option><option>Marketplace</option><option>Service</option><option>Infrastructure</option><option>Data / Intelligence</option><option>Licensing</option><option>Commerce</option></select></label></div><label>Economic archetype<select name="model_type"><option value="saas">SaaS / Subscription</option><option value="platform">Platform / Freemium</option><option value="marketplace">Marketplace</option><option value="service">Service Business</option><option value="licensing">Licensing / Royalty</option><option value="asset">Asset-Heavy / Infrastructure</option><option value="commerce">Commerce / Product Sales</option><option value="generic">Generic</option></select></label><label>One-line thesis<input name="one_liner" required placeholder="What is the concept in one sentence?"></label><div class="two"><label>Target customer<input name="customer" placeholder="Who pays or uses it?"></label><label>Problem<input name="problem" placeholder="What painful problem exists?"></label></div><label>Solution<textarea name="solution" placeholder="What changes for the customer?"></textarea></label><button class="btn">Create concept</button></form></div></div>
 <script>
 const SB_URL='https://dhwkaulzhrcebtrcchyl.supabase.co';
@@ -32,7 +32,38 @@ function authHeaders(extra={}){return {'apikey':SB_KEY,'Authorization':`Bearer $
 async function authCall(path,body){const r=await fetch(SB_URL+path,{method:'POST',headers:{'apikey':SB_KEY,'Content-Type':'application/json'},body:JSON.stringify(body)});const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.msg||j.message||j.error_description||'Authentication failed');return j}
 async function refreshSession(){const raw=localStorage.getItem('vs_session');if(!raw)return false;try{const s=JSON.parse(raw);if(!s.refresh_token)return false;const j=await authCall('/auth/v1/token?grant_type=refresh_token',{refresh_token:s.refresh_token});session=j;user=j.user;localStorage.setItem('vs_session',JSON.stringify(j));return true}catch{localStorage.removeItem('vs_session');return false}}
 async function signIn(email,password){const j=await authCall('/auth/v1/token?grant_type=password',{email,password});session=j;user=j.user;localStorage.setItem('vs_session',JSON.stringify(j));await boot()}
-async function signUp(email,password){return authCall('/auth/v1/signup',{email,password})}
+async function signUp(email,password){
+  const redirect=encodeURIComponent(location.origin);
+  return authCall('/auth/v1/signup?redirect_to='+redirect,{email,password})
+}
+async function consumeAuthRedirect(){
+  const raw=location.hash.replace(/^#/,'');
+  if(!raw)return false;
+  const p=new URLSearchParams(raw);
+  const err=p.get('error_description')||p.get('error');
+  if(err)throw new Error(decodeURIComponent(err));
+  const access_token=p.get('access_token');
+  const refresh_token=p.get('refresh_token');
+  if(!access_token||!refresh_token)return false;
+  const r=await fetch(SB_URL+'/auth/v1/user',{
+    headers:{apikey:SB_KEY,Authorization:`Bearer ${access_token}`}
+  });
+  const u=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(u?.message||'Could not complete email confirmation');
+  const expires_in=Number(p.get('expires_in')||3600);
+  session={
+    access_token,
+    refresh_token,
+    token_type:p.get('token_type')||'bearer',
+    expires_in,
+    expires_at:Math.floor(Date.now()/1000)+expires_in,
+    user:u
+  };
+  user=u;
+  localStorage.setItem('vs_session',JSON.stringify(session));
+  history.replaceState(null,'',location.pathname+location.search);
+  return true;
+}
 async function rest(table,{method='GET',query='',body,prefer='return=representation'}={}){let r=await fetch(`${SB_URL}/rest/v1/${table}${query?`?${query}`:''}`,{method,headers:authHeaders({'Prefer':prefer}),body:body===undefined?undefined:JSON.stringify(body)});if(r.status===401&&await refreshSession())r=await fetch(`${SB_URL}/rest/v1/${table}${query?`?${query}`:''}`,{method,headers:authHeaders({'Prefer':prefer}),body:body===undefined?undefined:JSON.stringify(body)});const t=await r.text();const j=t?JSON.parse(t):null;if(!r.ok)throw new Error(j?.message||j?.hint||`Database request failed (${r.status})`);return j}
 async function edgeInvoke(name,body={}){
   const invoke=()=>fetch(`${SB_URL}/functions/v1/${name}`,{
@@ -225,10 +256,32 @@ async function addExperiment(e){e.preventDefault();const f=Object.fromEntries(ne
 async function addEvidence(e){e.preventDefault();const f=Object.fromEntries(new FormData(e.target));if(!f.assumption_id)return alert('Create an assumption first.');const body={concept_id:current,owner_id:user.id,assumption_id:f.assumption_id,experiment_id:f.experiment_id||null,level:f.level,direction:f.direction,summary:f.summary,source:f.source||'Manual entry'};const [ev]=await rest('vs_evidence',{method:'POST',body});const a=state.assumptions.find(x=>x.id===f.assumption_id);const status=evidenceStatus(a,body);const level=(EVIDENCE[f.level].score>=(EVIDENCE[a.evidence_level]?.score||0))?f.level:a.evidence_level;let confidence=a.confidence;if(f.direction==='supports')confidence=Math.min(5,Math.max(confidence,Math.ceil((EVIDENCE[f.level].score+1)/1.4)));if(f.direction==='contradicts')confidence=Math.max(1,confidence-1);await rest('vs_assumptions',{method:'PATCH',query:`id=eq.${a.id}`,body:{status,evidence_level:level,confidence,updated_at:new Date().toISOString()}});if(f.experiment_id)await rest('vs_experiments',{method:'PATCH',query:`id=eq.${f.experiment_id}`,body:{status:'completed',updated_at:new Date().toISOString()}});await event('evidence.recorded','evidence',ev.id,current,{assumption_id:a.id,level:f.level,direction:f.direction,summary:f.summary});await event('assumption.status_changed','assumption',a.id,current,{status,evidence_level:level,confidence});await loadState();show('evidence')}
 async function runSimulation(e){e.preventDefault();const f=Object.fromEntries(new FormData(e.target));Object.keys(f).forEach(k=>f[k]=Number(f[k]));const outputs={conservative:simulate(f,cv().model_type,.65),base:simulate(f,cv().model_type,1),upside:simulate(f,cv().model_type,1.45)};const [x]=await rest('vs_simulation_runs',{method:'POST',body:{concept_id:current,owner_id:user.id,model_type:cv().model_type,scenario:'custom',inputs:f,outputs,is_evidence:false}});$('#simResults').innerHTML=scenarioCards(outputs);state.simulations.unshift(x)}
 async function addDecision(e){e.preventDefault();const f=Object.fromEntries(new FormData(e.target));const [d]=await rest('vs_decisions',{method:'POST',body:{concept_id:current,owner_id:user.id,title:f.title,decision:f.decision,rationale:f.rationale,review_condition:f.review_condition,decision_owner:'Metatility'}});await event('decision.made','decision',d.id,current,{title:d.title,decision:d.decision,rationale:d.rationale,review_condition:d.review_condition});await loadState();show('decisions')}
-async function boot(){if(!session&&!await refreshSession()){showAuth();return}user=session.user;$('#auth').classList.add('hidden');await loadState()}
+async function boot(){
+  if(!session){
+    const redirected=await consumeAuthRedirect();
+    if(!redirected&&!await refreshSession()){showAuth();return}
+  }
+  user=session.user;
+  $('#auth').classList.add('hidden');
+  await loadState()
+}
 function showAuth(){$('#auth').classList.remove('hidden')}
-$('#authForm').onsubmit=async e=>{e.preventDefault();$('#authErr').style.display='none';try{const f=Object.fromEntries(new FormData(e.target));await signIn(f.email,f.password)}catch(err){$('#authErr').textContent=err.message;$('#authErr').style.display='block'}};
-$('#signUp').onclick=async()=>{const form=$('#authForm'),f=Object.fromEntries(new FormData(form));if(!f.email||!f.password)return;$('#authErr').style.display='none';$('#authOk').style.display='none';try{const j=await signUp(f.email,f.password);if(j.access_token){session=j;user=j.user;localStorage.setItem('vs_session',JSON.stringify(j));await boot()}else{$('#authOk').textContent='Account created. Check your email to confirm it, then return here and sign in.';$('#authOk').style.display='block'}}catch(err){$('#authErr').textContent=err.message;$('#authErr').style.display='block'}};
+$('#authForm').onsubmit=async e=>{
+  e.preventDefault();
+  $('#authErr').style.display='none';
+  $('#authOk').style.display='none';
+  try{
+    const f=Object.fromEntries(new FormData(e.target));
+    await signIn(f.email,f.password)
+  }catch(err){
+    const invalid=/invalid login credentials/i.test(err.message||'');
+    $('#authErr').textContent=invalid
+      ? 'That email/password is not registered in Metatility VS. If this is your first visit, choose “Create Metatility account” below.'
+      : err.message;
+    $('#authErr').style.display='block'
+  }
+};
+$('#signUp').onclick=async()=>{const form=$('#authForm'),f=Object.fromEntries(new FormData(form));if(!f.email||!f.password)return;$('#authErr').style.display='none';$('#authOk').style.display='none';try{const j=await signUp(f.email,f.password);if(j.access_token){session=j;user=j.user;localStorage.setItem('vs_session',JSON.stringify(j));await boot()}else{$('#authOk').textContent=`Account created for ${f.email}. Check your email and open the confirmation link. You will return here and be signed in automatically.`;$('#authOk').style.display='block'}}catch(err){$('#authErr').textContent=err.message;$('#authErr').style.display='block'}};
 $('#signOut').onclick=()=>{localStorage.removeItem('vs_session');session=user=null;location.reload()};
 $('#newConceptTop').onclick=openConcept;$('#closeConcept').onclick=closeConcept;$('#conceptModal').onclick=e=>{if(e.target.id==='conceptModal')closeConcept()};$('#conceptForm').onsubmit=createConcept;
 nav();boot().catch(err=>{showAuth();$('#authErr').textContent=err.message;$('#authErr').style.display='block'});
