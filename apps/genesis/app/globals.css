@@ -1168,3 +1168,36 @@ p { line-height: 1.55; }
     justify-self: start;
   }
 }
+
+
+.analytics-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.analytics-recommendation-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.analytics-recommendation-meta span {
+  display: inline-flex;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: #f0f4f7;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+@media (max-width: 760px) {
+  .analytics-header-actions {
+    justify-content: flex-start;
+  }
+}
