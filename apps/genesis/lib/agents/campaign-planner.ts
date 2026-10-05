@@ -1,4 +1,4 @@
-import { ToolLoopAgent, stepCountIs } from "ai";
+import { Output, ToolLoopAgent, stepCountIs } from "ai";
 import { z } from "zod";
 
 export const campaignPlanSchema = z.object({
@@ -57,8 +57,6 @@ Rules:
 - Draft assets only; do not publish them.
 - Any paid spend, public publishing, or customer messaging requires human approval.
 - Optimize for qualified opportunities and attributable commercial outcomes.`,
-  output: {
-    schema: campaignPlanSchema,
-  },
+  output: Output.object({\n    schema: campaignPlanSchema,\n  }),
   stopWhen: stepCountIs(4),
 });
