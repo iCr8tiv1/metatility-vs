@@ -1,4 +1,4 @@
-import { Output, ToolLoopAgent, stepCountIs } from "ai";
+import { ToolLoopAgent, isStepCount } from "ai";
 import { z } from "zod";
 
 export const campaignPlanSchema = z.object({
@@ -43,7 +43,7 @@ export type CampaignPlanOutput = z.infer<typeof campaignPlanSchema>;
 
 export const campaignPlannerAgent = new ToolLoopAgent({
   model: "openai/gpt-5.6-sol",
-  system: `You are Genesis Campaign Planner, a governed campaign-planning agent.
+  instructions: `You are Genesis Campaign Planner, a governed campaign-planning agent.
 
 Convert an approved market hypothesis and audience hypothesis into one measurable campaign experiment.
 
@@ -58,5 +58,5 @@ Rules:
 - Any paid spend, public publishing, or customer messaging requires human approval.
 - Optimize for qualified opportunities and attributable commercial outcomes.`,
   output: Output.object({\n    schema: campaignPlanSchema,\n  }),
-  stopWhen: stepCountIs(4),
+  stopWhen: isStepCount(4),
 });
