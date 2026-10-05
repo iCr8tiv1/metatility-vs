@@ -261,3 +261,34 @@ The first live-data connector is implemented but not yet activated:
 - High-scoring leads enter the existing BILDEN handoff approval queue.
 
 Activation remains blocked until the same encrypted `GENESIS_WEBFORM_INGEST_SECRET` is configured in Cloudflare Pages and the Metatility Supabase Edge Function environment, followed by one end-to-end test.
+
+
+## Analytics agent
+
+Genesis Analytics is now an executable, evidence-bounded agent rather than a passive dashboard role.
+
+It reads observed Genesis telemetry only:
+
+- lead counts, sources, status, score, and confidence
+- campaign status/channel/budget/spend recorded inside Genesis
+- opportunity counts/status/estimated value
+- approval queue state
+- nurture-plan state and permission basis
+- registered integration status
+- agent-run reliability and recorded cost
+- recent Genesis events
+
+It must not infer external traffic, search demand, paid-media results, email engagement, won/lost revenue, or profitability when the corresponding connector is disconnected.
+
+Each Analytics run writes:
+
+- structured observations
+- explicit measurement gaps
+- one recommended next experiment
+- primary metric
+- success condition
+- required evidence
+- confidence
+- an auditable agent run and event
+
+The Analytics workspace exposes an operator-triggered **Run Analytics Agent** control and displays the latest Analytics recommendation.
