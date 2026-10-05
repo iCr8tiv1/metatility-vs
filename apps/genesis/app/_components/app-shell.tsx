@@ -4,7 +4,7 @@ import { signOut } from "@/app/actions/auth";
 
 const nav = [
   { label: "Command Center", href: "/" },
-  { label: "Agents" },
+  { label: "Agents", href: "/agents" },
   { label: "Campaigns", href: "/campaigns" },
   { label: "Leads", href: "/leads" },
   { label: "Approvals", href: "/approvals" },
@@ -12,8 +12,8 @@ const nav = [
   { label: "Content", href: "/content" },
   { label: "Intelligence", href: "/intelligence" },
   { label: "Analytics" },
-  { label: "Knowledge" },
-  { label: "Integrations" },
+  { label: "Knowledge", href: "/knowledge" },
+  { label: "Integrations", href: "/integrations" },
 ];
 
 export function AppShell({
