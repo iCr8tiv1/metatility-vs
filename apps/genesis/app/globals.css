@@ -1076,3 +1076,95 @@ p { line-height: 1.55; }
     flex-direction: column;
   }
 }
+
+
+.nurture-lead-list,
+.nurture-plan-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.nurture-lead-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 13px;
+  background: #fcfdfe;
+}
+
+.nurture-lead-card .panel-heading {
+  margin-bottom: 8px;
+}
+
+.nurture-lead-card .panel-heading p {
+  margin: 3px 0 0;
+  font-size: 11px;
+}
+
+.nurture-summary {
+  margin: 10px 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.nurture-sequence {
+  display: grid;
+  gap: 8px;
+  margin-top: 15px;
+}
+
+.nurture-step {
+  display: grid;
+  grid-template-columns: 74px 1fr;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 11px;
+  background: white;
+}
+
+.nurture-step-marker {
+  display: grid;
+  place-items: center;
+  min-height: 48px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.nurture-step > div:last-child {
+  display: grid;
+  gap: 4px;
+}
+
+.nurture-step strong {
+  font-size: 13px;
+}
+
+.nurture-step span {
+  color: var(--muted);
+  font-size: 10px;
+  text-transform: capitalize;
+}
+
+.nurture-step p {
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+@media (max-width: 620px) {
+  .nurture-step {
+    grid-template-columns: 1fr;
+  }
+
+  .nurture-step-marker {
+    min-height: auto;
+    padding: 7px 9px;
+    justify-self: start;
+  }
+}
