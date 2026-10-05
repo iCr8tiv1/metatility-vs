@@ -46,17 +46,20 @@ export async function createLead(formData: FormData) {
     redirect("/leads?error=Required%20fields%20are%20missing");
   }
 
+  let result;
+
   try {
-    const result = await captureAndQualifyLead(supabase, ownerId, intake);
-    revalidatePath("/");
-    revalidatePath("/leads");
-    revalidatePath("/approvals");
-    redirect(
-      `/leads?created=1&score=${result.score.overallScore}&recommendation=${result.score.recommendation}`
-    );
+    result = await captureAndQualifyLead(supabase, ownerId, intake);
   } catch {
     redirect("/leads?error=Lead%20workflow%20could%20not%20be%20completed");
   }
+
+  revalidatePath("/");
+  revalidatePath("/leads");
+  revalidatePath("/approvals");
+  redirect(
+    `/leads?created=1&score=${result.score.overallScore}&recommendation=${result.score.recommendation}`
+  );
 }
 
 export async function approveBildenHandoff(formData: FormData) {
