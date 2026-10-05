@@ -9,8 +9,23 @@ import {
   rejectCampaignActivation,
   rejectContentPackage,
 } from "@/app/actions/demand-engine";
+import {
+  approveNurturePlan,
+  rejectNurturePlan,
+} from "@/app/actions/nurture";
 import { AppShell } from "@/app/_components/app-shell";
 import { createClient } from "@/lib/supabase/server";
+
+type NurturePlanRow = {
+  id: string;
+  lead_id: string;
+  status: string;
+  permission_basis: string;
+  strategy: string;
+  readiness_assessment: string;
+  sequence: unknown;
+  metadata: unknown;
+};
 
 type ContentAssetRow = {
   id: string;
@@ -50,10 +65,22 @@ export default async function ApprovalsPage({
     : { data: [] };
 
   const leadIds = (approvals ?? [])
-    .filter((approval) => approval.action_type === "create_bilden_opportunity")
+    .filter(
+      (approval) =>
+        approval.action_type === "create_bilden_opportunity" ||
+        approval.action_type === "approve_nurture_plan"
+    )
     .map((approval) => {
       const payload = approval.payload as { lead_id?: string };
       return payload.lead_id;
+    })
+    .filter((id): id is string => Boolean(id));
+
+  const nurturePlanIds = (approvals ?? [])
+    .filter((approval) => approval.action_type === "approve_nurture_plan")
+    .map((approval) => {
+      const payload = approval.payload as { nurture_plan_id?: string };
+      return payload.nurture_plan_id;
     })
     .filter((id): id is string => Boolean(id));
 
@@ -69,8 +96,12 @@ export default async function ApprovalsPage({
     })
     .filter((id): id is string => Boolean(id));
 
-  const [{ data: leads }, { data: campaigns }, { data: contentAssets }] =
-    await Promise.all([
+  const [
+    { data: leads },
+    { data: campaigns },
+    { data: contentAssets },
+    { data: nurturePlans },
+  ] = await Promise.all([
     leadIds.length
       ? supabase
           .from("genesis_leads")
@@ -95,11 +126,23 @@ export default async function ApprovalsPage({
           .eq("status", "review")
           .order("updated_at", { ascending: false })
       : Promise.resolve({ data: [] }),
+    nurturePlanIds.length
+      ? supabase
+          .from("genesis_nurture_plans")
+          .select(
+            "id,lead_id,status,permission_basis,strategy,readiness_assessment,sequence,metadata"
+          )
+          .in("id", nurturePlanIds)
+      : Promise.resolve({ data: [] }),
   ]);
 
   const leadById = new Map((leads ?? []).map((lead) => [lead.id, lead]));
   const campaignById = new Map(
     (campaigns ?? []).map((campaign) => [campaign.id, campaign])
+  );
+
+  const nurturePlanById = new Map(
+    ((nurturePlans ?? []) as NurturePlanRow[]).map((plan) => [plan.id, plan])
   );
 
   const contentAssetsByCampaign = new Map<string, ContentAssetRow[]>();
@@ -203,6 +246,116 @@ export default async function ApprovalsPage({
                       </button>
                     </form>
                     <form action={rejectContentPackage}>
+                      <input
+                        name="approvalId"
+                        type="hidden"
+                        value={approval.id}
+                      />
+                      <button className="secondary-button" type="submit">
+                        Return for revision
+                      </button>
+                    </form>
+                  </div>
+                </article>
+              );
+            }
+
+            if (approval.action_type === "approve_nurture_plan") {
+              const payload = approval.payload as {
+                nurture_plan_id?: string;
+                lead_id?: string;
+                permission_basis?: string;
+                email_connector_connected?: boolean;
+              };
+              const plan = payload.nurture_plan_id
+                ? nurturePlanById.get(payload.nurture_plan_id)
+                : undefined;
+              const lead = payload.lead_id
+                ? leadById.get(payload.lead_id)
+                : undefined;
+              const steps = Array.isArray(plan?.sequence)
+                ? (plan?.sequence as Array<{
+                    dayOffset?: number;
+                    channel?: string;
+                    subject?: string;
+                    message?: string;
+                    purpose?: string;
+                  }>)
+                : [];
+
+              return (
+                <article className="panel approval-card" key={approval.id}>
+                  <div className="panel-heading">
+                    <div>
+                      <p className="eyebrow">NURTURE PLAN REVIEW</p>
+                      <h2>
+                        {lead
+                          ? `${lead.first_name} ${lead.last_name}`
+                          : "Lead follow-up plan"}
+                      </h2>
+                      <p className="muted">
+                        {plan?.permission_basis.replaceAll("_", " ") ??
+                          payload.permission_basis?.replaceAll("_", " ") ??
+                          "permission unverified"}
+                      </p>
+                    </div>
+                    <span className="risk-pill">
+                      {approval.risk_level} risk
+                    </span>
+                  </div>
+
+                  <div className="campaign-section">
+                    <span>Readiness</span>
+                    <p>
+                      {plan?.readiness_assessment ??
+                        "Readiness assessment unavailable."}
+                    </p>
+                  </div>
+
+                  <div className="campaign-section">
+                    <span>Strategy</span>
+                    <p>{plan?.strategy ?? "Strategy unavailable."}</p>
+                  </div>
+
+                  <div className="content-approval-list">
+                    {steps.slice(0, 6).map((step, index) => (
+                      <div className="content-approval-item" key={index}>
+                        <div>
+                          <strong>
+                            Day {step.dayOffset ?? 0} ·{" "}
+                            {step.subject || step.purpose || "Follow-up"}
+                          </strong>
+                          <span>{step.channel ?? "email"}</span>
+                        </div>
+                        <p>{step.message}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="notice">
+                    Approval accepts the follow-up plan only. Genesis remains
+                    unable to send messages automatically, and the Email
+                    connector is{" "}
+                    <strong>
+                      {payload.email_connector_connected
+                        ? "connected"
+                        : "not connected"}
+                    </strong>
+                    .
+                  </div>
+
+                  <div className="approval-actions">
+                    <form action={approveNurturePlan}>
+                      <input
+                        name="approvalId"
+                        type="hidden"
+                        value={approval.id}
+                      />
+                      <button className="primary-button" type="submit">
+                        Approve nurture plan
+                      </button>
+                    </form>
+                    <form action={rejectNurturePlan}>
                       <input
                         name="approvalId"
                         type="hidden"
