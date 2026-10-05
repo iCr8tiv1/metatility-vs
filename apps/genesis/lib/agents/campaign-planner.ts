@@ -43,7 +43,7 @@ export type CampaignPlanOutput = z.infer<typeof campaignPlanSchema>;
 
 export const campaignPlannerAgent = new ToolLoopAgent({
   model: "openai/gpt-5.6-sol",
-  instructions: `You are Genesis Campaign Planner, a governed campaign-planning agent.
+  system: `You are Genesis Campaign Planner, a governed campaign-planning agent.
 
 Convert an approved market hypothesis and audience hypothesis into one measurable campaign experiment.
 
