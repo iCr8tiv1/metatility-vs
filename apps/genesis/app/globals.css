@@ -846,3 +846,135 @@ p { line-height: 1.55; }
     grid-template-columns: 1fr;
   }
 }
+
+
+.agent-governance-grid,
+.integration-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.agent-governance-card,
+.integration-card {
+  min-height: 0;
+}
+
+.agent-mission,
+.integration-purpose {
+  margin: 14px 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.governance-section {
+  border-top: 1px solid var(--line);
+  padding-top: 13px;
+  margin-top: 13px;
+}
+
+.governance-section > span,
+.integration-unlocks > span {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.last-run {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 15px;
+}
+
+.last-run > div,
+.integration-unlocks {
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px;
+  background: #fafbfc;
+}
+
+.last-run span {
+  color: var(--muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.last-run strong,
+.integration-unlocks strong {
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.knowledge-list {
+  display: grid;
+  gap: 10px;
+}
+
+.knowledge-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+  background: #fcfdfe;
+}
+
+.knowledge-main {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.knowledge-main > strong {
+  font-size: 14px;
+}
+
+.knowledge-main small {
+  overflow-wrap: anywhere;
+}
+
+.knowledge-note {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.integration-unlocks {
+  margin-top: 14px;
+}
+
+@media (max-width: 1000px) {
+  .agent-governance-grid,
+  .integration-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 620px) {
+  .knowledge-row {
+    flex-direction: column;
+  }
+
+  .knowledge-row form,
+  .knowledge-row button {
+    width: 100%;
+  }
+
+  .last-run {
+    grid-template-columns: 1fr;
+  }
+}
