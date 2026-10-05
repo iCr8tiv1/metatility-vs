@@ -1,4 +1,4 @@
-import { ToolLoopAgent, stepCountIs } from "ai";
+import { Output, ToolLoopAgent, stepCountIs } from "ai";
 import { z } from "zod";
 
 export const marketIntelligenceSchema = z.object({
@@ -68,8 +68,6 @@ Critical rules:
 - Produce 1-4 practical audience hypotheses suitable for campaign testing.
 - Optimize for qualified pipeline and attributable revenue, not vanity metrics.
 - Do not publish, spend money, or contact customers.`,
-  output: {
-    schema: marketIntelligenceSchema,
-  },
+  output: Output.object({\n    schema: marketIntelligenceSchema,\n  }),
   stopWhen: stepCountIs(4),
 });
