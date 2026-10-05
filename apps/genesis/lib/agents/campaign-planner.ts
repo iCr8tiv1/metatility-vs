@@ -57,6 +57,8 @@ Rules:
 - Draft assets only; do not publish them.
 - Any paid spend, public publishing, or customer messaging requires human approval.
 - Optimize for qualified opportunities and attributable commercial outcomes.`,
-  output: Output.object({\n    schema: campaignPlanSchema,\n  }),
+  output: Output.object({
+    schema: campaignPlanSchema,
+  }),
   stopWhen: isStepCount(4),
 });
