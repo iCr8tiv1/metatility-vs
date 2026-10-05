@@ -531,8 +531,10 @@ export async function approveCampaignActivation(formData: FormData) {
   }
 
   const metadata =
-    campaign.metadata && typeof campaign.metadata === "object"
-      ? campaign.metadata
+    campaign.metadata &&
+    typeof campaign.metadata === "object" &&
+    !Array.isArray(campaign.metadata)
+      ? (campaign.metadata as Record<string, unknown>)
       : {};
 
   await Promise.all([
