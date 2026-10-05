@@ -68,6 +68,8 @@ Critical rules:
 - Produce 1-4 practical audience hypotheses suitable for campaign testing.
 - Optimize for qualified pipeline and attributable revenue, not vanity metrics.
 - Do not publish, spend money, or contact customers.`,
-  output: Output.object({\n    schema: marketIntelligenceSchema,\n  }),
+  output: Output.object({
+    schema: marketIntelligenceSchema,
+  }),
   stopWhen: isStepCount(4),
 });
