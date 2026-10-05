@@ -1,11 +1,11 @@
 "use server";
 
-import { generateText } from "ai";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { genesisDirectorAgent } from "@/lib/agents/director";
 
-const DIRECTOR_MODEL = "openai/gpt-5.6-terra";
+const DIRECTOR_MODEL = "openai/gpt-5.6-sol";
 
 export async function runGenesisDirector() {
   const supabase = await createClient();
@@ -47,6 +47,8 @@ export async function runGenesisDirector() {
     { count: nurtureCount },
     { count: opportunityCount },
     { count: approvalCount },
+    { count: marketBriefCount },
+    { count: campaignCount },
     { data: integrations },
   ] = await Promise.all([
     supabase
@@ -73,6 +75,14 @@ export async function runGenesisDirector() {
       .eq("workspace_id", workspace.id)
       .eq("status", "pending"),
     supabase
+      .from("genesis_market_briefs")
+      .select("*", { count: "exact", head: true })
+      .eq("workspace_id", workspace.id),
+    supabase
+      .from("genesis_campaigns")
+      .select("*", { count: "exact", head: true })
+      .eq("workspace_id", workspace.id),
+    supabase
       .from("genesis_integrations")
       .select("integration_key,display_name,status,capabilities")
       .eq("workspace_id", workspace.id)
@@ -92,7 +102,11 @@ export async function runGenesisDirector() {
       qualified: qualifiedCount ?? 0,
       nurture: nurtureCount ?? 0,
       opportunities: opportunityCount ?? 0,
-      approvals_pending: approvalCount ?? 0,
+      approvalsPending: approvalCount ?? 0,
+    },
+    demandEngine: {
+      marketBriefs: marketBriefCount ?? 0,
+      campaigns: campaignCount ?? 0,
     },
     integrations: integrations ?? [],
   };
@@ -116,18 +130,17 @@ export async function runGenesisDirector() {
   if (runError || !run) redirect("/?director=run-error");
 
   try {
-    const result = await generateText({
-      model: DIRECTOR_MODEL,
-      system:
-        "You are Genesis Director, the supervisory marketing agent for a Metatility-owned AI Marketing Operating System. You may recommend actions but may not execute publishing, ad spend, customer contact, or external claims. Base every statement only on the supplied operating context. When evidence is insufficient, recommend the next data-generating action instead of inventing facts. Return one concise executive recommendation in 120 words or fewer, including the recommended action, why it is the priority, and the measurable outcome Genesis should watch.",
+    const result = await genesisDirectorAgent.generate({
       prompt: JSON.stringify(context),
     });
+
+    const output = result.output;
 
     await supabase
       .from("genesis_agent_runs")
       .update({
         status: "completed",
-        output: { recommendation: result.text },
+        output,
         usage: result.usage,
         completed_at: new Date().toISOString(),
       })
@@ -139,17 +152,17 @@ export async function runGenesisDirector() {
       agent_id: director.id,
       objective_id: objective?.id ?? null,
       title: "Genesis Director: next action",
-      summary: result.text,
-      rationale:
-        "Model-backed recommendation generated from the current Genesis objective, funnel state, approval queue, and integration status.",
+      summary: output.recommendedAction,
+      rationale: output.rationale,
       expected_impact: {
-        measurement_required: true,
+        primary_metric: output.primaryMetric,
+        expected_learning: output.expectedLearning,
       },
       status: "open",
       priority: 3,
       action: {
         mode: "recommend_only",
-        requires_human_review: true,
+        requires_human_review: output.requiresHumanReview,
       },
     });
   } catch (error) {
