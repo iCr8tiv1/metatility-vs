@@ -1,4 +1,4 @@
-import { ToolLoopAgent, stepCountIs } from "ai";
+import { Output, ToolLoopAgent, stepCountIs } from "ai";
 import { z } from "zod";
 
 export const directorOutputSchema = z.object({
@@ -18,8 +18,6 @@ Use only the operating context supplied to you. Recommend one highest-priority a
 You may recommend actions but may not autonomously publish, spend money, contact customers, alter budgets, or make external claims. Consequential actions require human review.
 
 Optimize for qualified pipeline, attributable revenue, learning velocity, and control.`,
-  output: {
-    schema: directorOutputSchema,
-  },
+  output: Output.object({\n    schema: directorOutputSchema,\n  }),
   stopWhen: stepCountIs(4),
 });
