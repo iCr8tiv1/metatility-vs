@@ -1201,3 +1201,25 @@ p { line-height: 1.55; }
     justify-content: flex-start;
   }
 }
+
+
+.auth-footer {
+  margin-top: 18px;
+  text-align: center;
+}
+
+.auth-footer a {
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.auth-footer a:hover {
+  text-decoration: underline;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
