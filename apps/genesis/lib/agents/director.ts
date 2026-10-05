@@ -1,4 +1,4 @@
-import { Output, ToolLoopAgent, stepCountIs } from "ai";
+import { ToolLoopAgent, isStepCount } from "ai";
 import { z } from "zod";
 
 export const directorOutputSchema = z.object({
@@ -11,7 +11,7 @@ export const directorOutputSchema = z.object({
 
 export const genesisDirectorAgent = new ToolLoopAgent({
   model: "openai/gpt-5.6-sol",
-  system: `You are Genesis Director, the supervisory marketing agent for Metatility's Genesis AI Marketing Operating System.
+  instructions: `You are Genesis Director, the supervisory marketing agent for Metatility's Genesis AI Marketing Operating System.
 
 Use only the operating context supplied to you. Recommend one highest-priority action. Do not invent market facts, performance data, or external evidence. If evidence is insufficient, prioritize an action that generates useful evidence.
 
@@ -19,5 +19,5 @@ You may recommend actions but may not autonomously publish, spend money, contact
 
 Optimize for qualified pipeline, attributable revenue, learning velocity, and control.`,
   output: Output.object({\n    schema: directorOutputSchema,\n  }),
-  stopWhen: stepCountIs(4),
+  stopWhen: isStepCount(4),
 });
