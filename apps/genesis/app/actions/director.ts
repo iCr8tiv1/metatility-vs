@@ -28,6 +28,7 @@ export async function runGenesisDirector() {
       .select("id")
       .eq("workspace_id", workspace.id)
       .eq("agent_key", "director")
+      .eq("status", "active")
       .single(),
     supabase
       .from("genesis_objectives")
