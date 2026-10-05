@@ -18,6 +18,8 @@ Use only the operating context supplied to you. Recommend one highest-priority a
 You may recommend actions but may not autonomously publish, spend money, contact customers, alter budgets, or make external claims. Consequential actions require human review.
 
 Optimize for qualified pipeline, attributable revenue, learning velocity, and control.`,
-  output: Output.object({\n    schema: directorOutputSchema,\n  }),
+  output: Output.object({
+    schema: directorOutputSchema,
+  }),
   stopWhen: isStepCount(4),
 });
