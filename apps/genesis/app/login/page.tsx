@@ -1,11 +1,12 @@
+import Link from "next/link";
 import { signIn } from "@/app/actions/auth";
 
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; reset?: string }>;
 }) {
-  const { error } = await searchParams;
+  const { error, reset } = await searchParams;
 
   return (
     <main className="login-shell">
@@ -14,6 +15,12 @@ export default async function LoginPage({
         <p className="eyebrow">METATILITY</p>
         <h1>Genesis</h1>
         <p className="muted">Sign in to the AI marketing operating system.</p>
+
+        {reset ? (
+          <div className="notice success">
+            Password updated. Sign in with your new password.
+          </div>
+        ) : null}
 
         <form action={signIn} className="form-stack">
           <label>
@@ -34,6 +41,10 @@ export default async function LoginPage({
             Sign in
           </button>
         </form>
+
+        <div className="auth-footer">
+          <Link href="/forgot-password">Forgot password?</Link>
+        </div>
       </section>
     </main>
   );
