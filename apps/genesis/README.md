@@ -181,3 +181,50 @@ Do not merge to `main` until the first live end-to-end operational loop has been
 7. approve a Bilden opportunity
 8. receive a downstream outcome event
 9. verify attribution and audit history
+
+
+## Current development checkpoint — control plane + telemetry
+
+Genesis now also includes operator workspaces for:
+
+- **Agents** — inspect agent mission, autonomy level, tool domains, KPIs, recent execution, and pause/resume governed agents.
+- **Knowledge** — register evidence sources with source type, scope, trust level, verification status, and activation state. Credentials are explicitly excluded from knowledge metadata.
+- **Integrations** — view connector readiness, capabilities, connection order, sync state, and execution boundaries.
+- **Analytics** — measure Genesis's internal funnel, agent-run reliability, approval activity, event history, and external-evidence coverage.
+
+Paused agents are enforced at the workflow layer for Director, Market Intelligence, Campaign Planner, Content + SEO, and Lead Intelligence.
+
+The external capability registry currently contains:
+
+1. Web Forms
+2. Analytics
+3. Search Data
+4. Email
+5. Bilden
+6. Paid Media
+7. Social Publishing
+
+All remain disconnected until a real connector is configured. This is intentional: Genesis must not imply that external evidence, publishing, communication, spend, or downstream revenue feedback exists when the corresponding connector is not live.
+
+### Security checkpoint
+
+Genesis currently has:
+
+- RLS enabled across all 17 Genesis public tables.
+- 17 Genesis RLS policies.
+- zero anonymous table grants across the Genesis namespace.
+- server-side execution boundaries for model-backed workflows.
+- human approval boundaries around opportunity handoff, content release, campaign activation, publishing, communication, and spend.
+
+Supabase's security advisor still reports **Leaked Password Protection Disabled** in Auth. That setting must be enabled in the Supabase Auth dashboard.
+
+### Next live-loop dependency
+
+The next operational milestone is **Web Forms ingestion**.
+
+The Genesis Vercel project currently has only:
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+
+No backend Supabase secret is configured in Vercel. A public ingestion endpoint must therefore remain blocked until a server-only credential or an equivalently secure webhook authentication path is provisioned. Do not place a Supabase secret key in browser code or public environment variables.
