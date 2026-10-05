@@ -228,3 +228,36 @@ The Genesis Vercel project currently has only:
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 
 No backend Supabase secret is configured in Vercel. A public ingestion endpoint must therefore remain blocked until a server-only credential or an equivalently secure webhook authentication path is provisioned. Do not place a Supabase secret key in browser code or public environment variables.
+
+
+## Revenue Engine — Nurture
+
+Genesis now includes a governed Nurture workflow:
+
+```text
+Viable lead
+  -> Nurture agent
+  -> readiness assessment
+  -> permission-constrained sequence
+  -> human plan approval
+  -> awaiting Email connector
+```
+
+Nurture cannot upgrade communication permission beyond the evidence supplied by the lead source. BILDEN website inquiries are limited to inquiry-related follow-up unless broader consent is explicitly recorded. Other leads default to `unknown_or_unverified`.
+
+Approval accepts the plan only. It does not authorize automatic sending.
+
+## BILDEN website ingestion bridge
+
+The first live-data connector is implemented but not yet activated:
+
+- Supabase Edge Function: `genesis-lead-intake` version 2.
+- BILDEN branch: `genesis-intake-bridge`.
+- BILDEN draft PR: #1.
+- JobTread remains the primary inquiry destination.
+- Genesis receives a secondary copy only after JobTread reports success.
+- Intake is idempotent by BILDEN inquiry ID.
+- Abuse throttling uses a one-way client token; raw visitor IP is not stored.
+- High-scoring leads enter the existing BILDEN handoff approval queue.
+
+Activation remains blocked until the same encrypted `GENESIS_WEBFORM_INGEST_SECRET` is configured in Cloudflare Pages and the Metatility Supabase Edge Function environment, followed by one end-to-end test.
