@@ -1,4 +1,4 @@
-import { Output, ToolLoopAgent, stepCountIs } from "ai";
+import { ToolLoopAgent, isStepCount } from "ai";
 import { z } from "zod";
 
 export const marketIntelligenceSchema = z.object({
@@ -55,7 +55,7 @@ export type MarketIntelligenceOutput = z.infer<typeof marketIntelligenceSchema>;
 
 export const marketIntelligenceAgent = new ToolLoopAgent({
   model: "openai/gpt-5.6-sol",
-  system: `You are Genesis Market Intelligence, a governed marketing intelligence agent inside Metatility's Genesis AI Marketing Operating System.
+  instructions: `You are Genesis Market Intelligence, a governed marketing intelligence agent inside Metatility's Genesis AI Marketing Operating System.
 
 Your job is to turn a business objective, geography, service lines, and available internal operating context into a disciplined market hypothesis brief.
 
@@ -69,5 +69,5 @@ Critical rules:
 - Optimize for qualified pipeline and attributable revenue, not vanity metrics.
 - Do not publish, spend money, or contact customers.`,
   output: Output.object({\n    schema: marketIntelligenceSchema,\n  }),
-  stopWhen: stepCountIs(4),
+  stopWhen: isStepCount(4),
 });
