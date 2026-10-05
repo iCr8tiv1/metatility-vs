@@ -5,10 +5,21 @@ import {
 } from "@/app/actions/leads";
 import {
   approveCampaignActivation,
+  approveContentPackage,
   rejectCampaignActivation,
+  rejectContentPackage,
 } from "@/app/actions/demand-engine";
 import { AppShell } from "@/app/_components/app-shell";
 import { createClient } from "@/lib/supabase/server";
+
+type ContentAssetRow = {
+  id: string;
+  campaign_id: string;
+  asset_type: string;
+  title: string;
+  content: string;
+  status: string;
+};
 
 export default async function ApprovalsPage({
   searchParams,
@@ -47,14 +58,19 @@ export default async function ApprovalsPage({
     .filter((id): id is string => Boolean(id));
 
   const campaignIds = (approvals ?? [])
-    .filter((approval) => approval.action_type === "activate_campaign")
+    .filter(
+      (approval) =>
+        approval.action_type === "activate_campaign" ||
+        approval.action_type === "review_content_package"
+    )
     .map((approval) => {
       const payload = approval.payload as { campaign_id?: string };
       return payload.campaign_id;
     })
     .filter((id): id is string => Boolean(id));
 
-  const [{ data: leads }, { data: campaigns }] = await Promise.all([
+  const [{ data: leads }, { data: campaigns }, { data: contentAssets }] =
+    await Promise.all([
     leadIds.length
       ? supabase
           .from("genesis_leads")
@@ -71,12 +87,28 @@ export default async function ApprovalsPage({
           )
           .in("id", campaignIds)
       : Promise.resolve({ data: [] }),
+    campaignIds.length
+      ? supabase
+          .from("genesis_campaign_assets")
+          .select("id,campaign_id,asset_type,title,content,status")
+          .in("campaign_id", campaignIds)
+          .eq("status", "review")
+          .order("updated_at", { ascending: false })
+      : Promise.resolve({ data: [] }),
   ]);
 
   const leadById = new Map((leads ?? []).map((lead) => [lead.id, lead]));
   const campaignById = new Map(
     (campaigns ?? []).map((campaign) => [campaign.id, campaign])
   );
+
+  const contentAssetsByCampaign = new Map<string, ContentAssetRow[]>();
+
+  for (const asset of (contentAssets ?? []) as ContentAssetRow[]) {
+    const list = contentAssetsByCampaign.get(asset.campaign_id) ?? [];
+    list.push(asset);
+    contentAssetsByCampaign.set(asset.campaign_id, list);
+  }
 
   return (
     <AppShell active="Approvals">
@@ -108,6 +140,83 @@ export default async function ApprovalsPage({
       <section className="approval-grid">
         {approvals?.length ? (
           approvals.map((approval) => {
+            if (approval.action_type === "review_content_package") {
+              const payload = approval.payload as {
+                campaign_id?: string;
+                asset_ids?: string[];
+                asset_count?: number;
+              };
+              const campaign = payload.campaign_id
+                ? campaignById.get(payload.campaign_id)
+                : undefined;
+              const packageAssets = payload.campaign_id
+                ? (contentAssetsByCampaign.get(payload.campaign_id) ?? []).filter(
+                    (asset) =>
+                      !payload.asset_ids?.length ||
+                      payload.asset_ids.includes(asset.id)
+                  )
+                : [];
+
+              return (
+                <article className="panel approval-card" key={approval.id}>
+                  <div className="panel-heading">
+                    <div>
+                      <p className="eyebrow">CONTENT PACKAGE REVIEW</p>
+                      <h2>{campaign?.name ?? "Campaign content"}</h2>
+                      <p className="muted">
+                        {packageAssets.length || payload.asset_count || 0} draft
+                        assets require review before future external use.
+                      </p>
+                    </div>
+                    <span className="risk-pill">
+                      {approval.risk_level} risk
+                    </span>
+                  </div>
+
+                  <div className="content-approval-list">
+                    {packageAssets.slice(0, 6).map((asset) => (
+                      <div className="content-approval-item" key={asset.id}>
+                        <div>
+                          <strong>{asset.title}</strong>
+                          <span>{asset.asset_type.replaceAll("_", " ")}</span>
+                        </div>
+                        <p>{asset.content}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="notice">
+                    Approval confirms the drafted claims and wording are
+                    acceptable for future use. It still does not publish or
+                    distribute the assets.
+                  </div>
+
+                  <div className="approval-actions">
+                    <form action={approveContentPackage}>
+                      <input
+                        name="approvalId"
+                        type="hidden"
+                        value={approval.id}
+                      />
+                      <button className="primary-button" type="submit">
+                        Approve content package
+                      </button>
+                    </form>
+                    <form action={rejectContentPackage}>
+                      <input
+                        name="approvalId"
+                        type="hidden"
+                        value={approval.id}
+                      />
+                      <button className="secondary-button" type="submit">
+                        Return for revision
+                      </button>
+                    </form>
+                  </div>
+                </article>
+              );
+            }
+
             if (approval.action_type === "activate_campaign") {
               const payload = approval.payload as {
                 campaign_id?: string;
