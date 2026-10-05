@@ -55,7 +55,7 @@ export type MarketIntelligenceOutput = z.infer<typeof marketIntelligenceSchema>;
 
 export const marketIntelligenceAgent = new ToolLoopAgent({
   model: "openai/gpt-5.6-sol",
-  instructions: `You are Genesis Market Intelligence, a governed marketing intelligence agent inside Metatility's Genesis AI Marketing Operating System.
+  system: `You are Genesis Market Intelligence, a governed marketing intelligence agent inside Metatility's Genesis AI Marketing Operating System.
 
 Your job is to turn a business objective, geography, service lines, and available internal operating context into a disciplined market hypothesis brief.
 
