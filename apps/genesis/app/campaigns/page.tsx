@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { AppShell } from "@/app/_components/app-shell";
+import { generateCampaignAssets } from "@/app/actions/demand-engine";
 import { createClient } from "@/lib/supabase/server";
 
 type CampaignAssetRow = {
@@ -24,6 +25,7 @@ type CampaignMetadata = {
   };
   activation_approved?: boolean;
   execution_status?: string;
+  content_status?: string;
 };
 
 export default async function CampaignsPage({
@@ -144,6 +146,9 @@ export default async function CampaignsPage({
               ? audienceById.get(campaign.audience_id)
               : undefined;
             const campaignAssets = assetsByCampaign.get(campaign.id) ?? [];
+            const hasDraftAssets = campaignAssets.some(
+              (asset) => asset.status === "draft"
+            );
             const approval = approvalByCampaign.get(campaign.id);
 
             return (
@@ -253,6 +258,26 @@ export default async function CampaignsPage({
                       {campaignAssets.length} assets
                     </small>
                   </div>
+
+                  {hasDraftAssets ? (
+                    <form action={generateCampaignAssets} className="asset-generate-action">
+                      <input
+                        name="campaignId"
+                        type="hidden"
+                        value={campaign.id}
+                      />
+                      <button className="secondary-button" type="submit">
+                        Generate governed content drafts
+                      </button>
+                    </form>
+                  ) : metadata.content_status ? (
+                    <div className="notice">
+                      Content status:{" "}
+                      <strong>
+                        {metadata.content_status.replaceAll("_", " ")}
+                      </strong>
+                    </div>
+                  ) : null}
 
                   <div className="asset-list">
                     {campaignAssets.map((asset) => (
