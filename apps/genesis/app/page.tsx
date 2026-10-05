@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { AppShell } from "@/app/_components/app-shell";
+import { runGenesisDirector } from "@/app/actions/director";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function CommandCenter() {
@@ -147,6 +148,11 @@ export default async function CommandCenter() {
               <p className="eyebrow">RECOMMENDATIONS</p>
               <h2>What Genesis recommends next</h2>
             </div>
+            <form action={runGenesisDirector}>
+              <button className="secondary-button" type="submit">
+                Run Director
+              </button>
+            </form>
           </div>
           {recommendations?.length ? (
             <div className="recommendation-list">
