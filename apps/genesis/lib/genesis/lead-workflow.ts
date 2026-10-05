@@ -122,6 +122,7 @@ export async function captureAndQualifyLead(
     .select("id")
     .eq("workspace_id", workspace.id)
     .eq("agent_key", "lead_intelligence")
+    .eq("status", "active")
     .single();
 
   if (agentError || !agent) {
