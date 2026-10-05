@@ -7,6 +7,7 @@ const nav = [
   { label: "Agents", href: "/agents" },
   { label: "Campaigns", href: "/campaigns" },
   { label: "Leads", href: "/leads" },
+  { label: "Nurture", href: "/nurture" },
   { label: "Approvals", href: "/approvals" },
   { label: "Audiences", href: "/audiences" },
   { label: "Content", href: "/content" },
