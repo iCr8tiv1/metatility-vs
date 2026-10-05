@@ -2,6 +2,17 @@ import { redirect } from "next/navigation";
 import { AppShell } from "@/app/_components/app-shell";
 import { createClient } from "@/lib/supabase/server";
 
+type CampaignAssetRow = {
+  id: string;
+  campaign_id: string;
+  asset_type: string;
+  channel: string;
+  title: string;
+  content: string;
+  status: string;
+  metadata: unknown;
+};
+
 type CampaignMetadata = {
   rationale?: string;
   audience_strategy?: string;
@@ -79,9 +90,9 @@ export default async function CampaignsPage({
         : Promise.resolve({ data: [] }),
     ]);
 
-  const assetsByCampaign = new Map<string, typeof assets>();
+  const assetsByCampaign = new Map<string, CampaignAssetRow[]>();
 
-  for (const asset of assets ?? []) {
+  for (const asset of (assets ?? []) as CampaignAssetRow[]) {
     const list = assetsByCampaign.get(asset.campaign_id) ?? [];
     list.push(asset);
     assetsByCampaign.set(asset.campaign_id, list);
