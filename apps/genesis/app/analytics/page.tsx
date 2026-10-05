@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { AppShell } from "@/app/_components/app-shell";
+import { runAnalyticsAgent } from "@/app/actions/analytics";
 import { createClient } from "@/lib/supabase/server";
 
 type RecentEvent = {
@@ -15,7 +16,12 @@ function percent(numerator: number, denominator: number) {
   return Math.round((numerator / denominator) * 100);
 }
 
-export default async function AnalyticsPage() {
+export default async function AnalyticsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ analysis?: string; error?: string }>;
+}) {
+  const params = await searchParams;
   const supabase = await createClient();
   const { data: claimsData } = await supabase.auth.getClaims();
 
@@ -36,6 +42,24 @@ export default async function AnalyticsPage() {
       </AppShell>
     );
   }
+
+  const { data: analyticsAgentRecord } = await supabase
+    .from("genesis_agents")
+    .select("id,status")
+    .eq("workspace_id", workspace.id)
+    .eq("agent_key", "analytics")
+    .maybeSingle();
+
+  const { data: latestAnalyticsRecommendation } = analyticsAgentRecord
+    ? await supabase
+        .from("genesis_recommendations")
+        .select("id,title,summary,rationale,expected_impact,status,created_at")
+        .eq("workspace_id", workspace.id)
+        .eq("agent_id", analyticsAgentRecord.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+    : { data: null };
 
   const [
     { count: leads },
@@ -155,10 +179,30 @@ export default async function AnalyticsPage() {
             until their connectors are live.
           </p>
         </div>
-        <span className="status-pill">
-          {liveConnectorCount}/{connectorCount} external feeds
-        </span>
+        <div className="analytics-header-actions">
+          <span className="status-pill">
+            {liveConnectorCount}/{connectorCount} external feeds
+          </span>
+          <form action={runAnalyticsAgent}>
+            <button
+              className="secondary-button"
+              type="submit"
+              disabled={analyticsAgentRecord?.status !== "active"}
+            >
+              Run Analytics Agent
+            </button>
+          </form>
+        </div>
       </header>
+
+      {params.analysis === "complete" ? (
+        <div className="notice success">
+          Analytics completed an evidence-bounded review and recorded its next
+          measurement recommendation.
+        </div>
+      ) : null}
+
+      {params.error ? <div className="notice error">{params.error}</div> : null}
 
       <section className="metric-grid">
         <article className="metric-card">
@@ -280,13 +324,32 @@ export default async function AnalyticsPage() {
         </article>
 
         <article className="panel">
-          <p className="eyebrow">NEXT MEASUREMENT STEP</p>
-          <h2>Connect Web Forms + Analytics</h2>
-          <p className="muted">
-            Those two feeds turn the current internal telemetry into a real
-            acquisition funnel: source → visit → lead → qualification →
-            opportunity.
-          </p>
+          <p className="eyebrow">ANALYTICS AGENT</p>
+          {latestAnalyticsRecommendation ? (
+            <>
+              <h2>{latestAnalyticsRecommendation.summary}</h2>
+              <p className="muted">
+                {latestAnalyticsRecommendation.rationale}
+              </p>
+              <div className="analytics-recommendation-meta">
+                <span>
+                  Recorded{" "}
+                  {new Date(
+                    latestAnalyticsRecommendation.created_at
+                  ).toLocaleString()}
+                </span>
+                <span>{latestAnalyticsRecommendation.status}</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <h2>Run the first evidence review</h2>
+              <p className="muted">
+                Analytics will inspect only Genesis telemetry, identify
+                measurement gaps, and recommend one measurable next action.
+              </p>
+            </>
+          )}
         </article>
       </section>
     </AppShell>
