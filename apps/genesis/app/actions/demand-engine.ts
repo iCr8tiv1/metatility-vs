@@ -62,6 +62,7 @@ export async function createMarketBrief(formData: FormData) {
       .select("id")
       .eq("workspace_id", workspaceId)
       .eq("agent_key", "market_intelligence")
+      .eq("status", "active")
       .single(),
     supabase
       .from("genesis_objectives")
@@ -285,6 +286,7 @@ export async function planCampaign(formData: FormData) {
       .select("id")
       .eq("workspace_id", workspaceId)
       .eq("agent_key", "campaign_planner")
+      .eq("status", "active")
       .single(),
     supabase
       .from("genesis_market_briefs")
@@ -518,6 +520,7 @@ export async function generateCampaignAssets(formData: FormData) {
       .select("id")
       .eq("workspace_id", workspaceId)
       .eq("agent_key", "content_seo")
+      .eq("status", "active")
       .single(),
     supabase
       .from("genesis_campaigns")
