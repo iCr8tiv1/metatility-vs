@@ -568,3 +568,281 @@ p { line-height: 1.55; }
     grid-template-columns: 1fr;
   }
 }
+
+
+.small-copy {
+  font-size: 13px;
+}
+
+.brief-list,
+.asset-list {
+  display: grid;
+  gap: 12px;
+}
+
+.brief-card {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 18px;
+  background: #fcfdfe;
+}
+
+.inline-badges {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.confidence-score {
+  min-width: 72px;
+  text-align: right;
+  display: grid;
+  gap: 2px;
+}
+
+.confidence-score strong {
+  font-size: 24px;
+  letter-spacing: -0.03em;
+  color: var(--accent);
+}
+
+.confidence-score span {
+  color: var(--muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.brief-summary {
+  margin: 12px 0 18px;
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.intelligence-section,
+.campaign-section {
+  border-top: 1px solid var(--line);
+  padding-top: 15px;
+  margin-top: 15px;
+}
+
+.intelligence-section h3 {
+  margin: 0 0 10px;
+  font-size: 14px;
+}
+
+.hypothesis-list {
+  display: grid;
+  gap: 8px;
+}
+
+.hypothesis-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 11px 12px;
+  background: white;
+}
+
+.hypothesis-row > div {
+  flex: 1;
+}
+
+.hypothesis-row p {
+  color: var(--muted);
+  margin: 4px 0 0;
+  font-size: 12px;
+}
+
+.hypothesis-row > span {
+  color: var(--accent);
+  font-weight: 800;
+  font-size: 12px;
+}
+
+.tag-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.soft-tag {
+  display: inline-flex;
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: #f0f4f7;
+  color: #44515d;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.compact-list {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.audience-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.audience-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+  background: white;
+}
+
+.audience-card > p {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.audience-detail {
+  margin: 12px 0;
+}
+
+.audience-detail span,
+.campaign-section > span {
+  color: var(--muted);
+  display: block;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.audience-detail p,
+.campaign-section > p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.campaign-grid,
+.audience-library {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.campaign-card {
+  min-height: 0;
+}
+
+.campaign-control-state {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.test-design {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 15px;
+}
+
+.test-design > div {
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px;
+  background: #fafbfc;
+}
+
+.test-design span {
+  color: var(--muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.test-design strong {
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.asset-row {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 11px;
+}
+
+.asset-row > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.asset-row > div span {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: capitalize;
+}
+
+.asset-row p {
+  color: var(--muted);
+  margin: 7px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.audience-profile {
+  min-height: 0;
+}
+
+.audience-profile-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.audience-profile-grid > div {
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
+.audience-profile-grid span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.audience-profile-grid ul {
+  margin: 7px 0 0;
+  padding-left: 17px;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+@media (max-width: 1050px) {
+  .campaign-grid,
+  .audience-library {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .audience-grid,
+  .test-design,
+  .audience-profile-grid {
+    grid-template-columns: 1fr;
+  }
+}
