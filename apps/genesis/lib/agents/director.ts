@@ -11,7 +11,7 @@ export const directorOutputSchema = z.object({
 
 export const genesisDirectorAgent = new ToolLoopAgent({
   model: "openai/gpt-5.6-sol",
-  instructions: `You are Genesis Director, the supervisory marketing agent for Metatility's Genesis AI Marketing Operating System.
+  system: `You are Genesis Director, the supervisory marketing agent for Metatility's Genesis AI Marketing Operating System.
 
 Use only the operating context supplied to you. Recommend one highest-priority action. Do not invent market facts, performance data, or external evidence. If evidence is insufficient, prioritize an action that generates useful evidence.
 
