@@ -11,7 +11,7 @@ const nav = [
   { label: "Audiences", href: "/audiences" },
   { label: "Content", href: "/content" },
   { label: "Intelligence", href: "/intelligence" },
-  { label: "Analytics" },
+  { label: "Analytics", href: "/analytics" },
   { label: "Knowledge", href: "/knowledge" },
   { label: "Integrations", href: "/integrations" },
 ];
