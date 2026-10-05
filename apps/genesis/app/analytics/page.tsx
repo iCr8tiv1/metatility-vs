@@ -48,6 +48,8 @@ export default async function AnalyticsPage() {
     { count: campaigns },
     { count: assets },
     { count: pendingApprovals },
+    { count: nurturePlans },
+    { count: approvedNurturePlans },
     { count: completedRuns },
     { count: failedRuns },
     { count: integrations },
@@ -98,6 +100,15 @@ export default async function AnalyticsPage() {
       .select("*", { count: "exact", head: true })
       .eq("workspace_id", workspace.id)
       .eq("status", "pending"),
+    supabase
+      .from("genesis_nurture_plans")
+      .select("*", { count: "exact", head: true })
+      .eq("workspace_id", workspace.id),
+    supabase
+      .from("genesis_nurture_plans")
+      .select("*", { count: "exact", head: true })
+      .eq("workspace_id", workspace.id)
+      .eq("status", "approved"),
     supabase
       .from("genesis_agent_runs")
       .select("*", { count: "exact", head: true })
@@ -203,6 +214,10 @@ export default async function AnalyticsPage() {
               <strong>{leadCount}</strong>
             </div>
             <div>
+              <span>Nurture plans</span>
+              <strong>{nurturePlans ?? 0}</strong>
+            </div>
+            <div>
               <span>Qualified</span>
               <strong>{qualifiedCount}</strong>
             </div>
@@ -216,6 +231,7 @@ export default async function AnalyticsPage() {
             <span>Nurture: {nurture ?? 0}</span>
             <span>Disqualified: {disqualified ?? 0}</span>
             <span>Pending approvals: {pendingApprovals ?? 0}</span>
+            <span>Approved nurture plans: {approvedNurturePlans ?? 0}</span>
           </div>
         </article>
 
