@@ -2297,3 +2297,99 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 }
+
+
+/* Workforce runtime */
+.runtime-control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 18px;
+}
+
+.runtime-control > div {
+  max-width: 780px;
+}
+
+.runtime-control h2,
+.completed-work-panel h2 {
+  margin: 0 0 6px;
+}
+
+.runtime-control form {
+  flex: 0 0 auto;
+}
+
+.runtime-control .primary-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.completed-work-panel {
+  margin-top: 18px;
+}
+
+.completed-work-list {
+  display: grid;
+  gap: 10px;
+}
+
+.completed-work-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.7fr) minmax(280px, 1.3fr);
+  gap: 20px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fcfdfe;
+}
+
+.completed-work-row > div:first-child {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+}
+
+.completed-work-row strong {
+  font-size: 13px;
+}
+
+.completed-work-row p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.completed-work-result {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
+.completed-work-result > p {
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.completed-work-result > span {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+@media (max-width: 800px) {
+  .runtime-control {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .runtime-control form,
+  .runtime-control .primary-button {
+    width: 100%;
+  }
+
+  .completed-work-row {
+    grid-template-columns: 1fr;
+  }
+}
