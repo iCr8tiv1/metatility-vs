@@ -379,3 +379,33 @@ Do not merge this branch until:
 7. no new Supabase security-advisor findings are introduced
 
 The next runtime milestone is Director task decomposition: one approved/high-level objective should become bounded specialist tasks for the appropriate workforce agents.
+
+
+### Workforce Runtime v0.2
+
+The feature branch now includes the first executable workforce runtime.
+
+From `/work`, an authenticated operator can run the next ready specialist task. The runtime:
+
+1. claims exactly one `ready` task,
+2. verifies the assigned Genesis agent is active,
+3. marks the task and assignment as running,
+4. loads the objective, plan, agent memory, workspace memory, and connector state,
+5. runs a role-specific governed specialist executor through Vercel AI Gateway,
+6. persists the structured deliverables into the task output,
+7. records the auditable `genesis_agent_runs` row,
+8. writes supported memory candidates to `genesis_agent_memory`,
+9. emits `task.completed`,
+10. creates an operator recommendation when the next logical action exceeds the agent's authority.
+
+Runtime profiles currently exist for Elias, Nova, Avery, Maya, Sofia, and Orion.
+
+The runtime is intentionally internal-only. It may research supplied context, analyze, plan, draft, qualify, and measure. It cannot publish, contact customers, spend money, change material budgets, or perform other consequential external actions.
+
+Failed tasks are visible in a recovery queue and can be explicitly returned to `ready` status. The retry emits `task.requeued` and preserves the failed agent-run record for audit history.
+
+#### Current autonomy boundary
+
+Runtime execution is currently operator-triggered because the Vercel project has only the public Supabase URL and publishable key configured. No server-only Supabase secret is present in Vercel.
+
+Do not build unattended/durable worker execution by placing a Supabase service-role or secret key in browser-accessible variables. Full unattended execution requires a narrowly scoped server credential or an equivalent trusted backend path first.
