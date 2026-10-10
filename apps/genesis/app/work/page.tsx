@@ -1,6 +1,9 @@
 import { redirect } from "next/navigation";
 import { AppShell } from "@/app/_components/app-shell";
-import {\n  retryFailedWorkforceTask,\n  runNextWorkforceTask,\n} from "@/app/actions/workforce";
+import {
+  retryFailedWorkforceTask,
+  runNextWorkforceTask,
+} from "@/app/actions/workforce";
 import { createClient } from "@/lib/supabase/server";
 
 const activeStatuses = ["queued", "ready", "running", "blocked", "awaiting_approval"];
@@ -17,7 +20,10 @@ function runtimeMessage(value?: string) {
     "agent-unavailable": "The assigned agent is paused or unavailable.",
     "claim-conflict": "Another runtime claimed that task first. Refresh and continue.",
     "run-create-error": "Genesis could not create the agent run.",
-    "execution-error": "The specialist task failed. The failure was recorded for review.",\n    requeued: "The failed task was returned to the ready queue.",\n    "retry-invalid": "Genesis could not identify the task to retry.",\n    "retry-unavailable": "That failed task is no longer available for retry.",
+    "execution-error": "The specialist task failed. The failure was recorded for review.",
+    requeued: "The failed task was returned to the ready queue.",
+    "retry-invalid": "Genesis could not identify the task to retry.",
+    "retry-unavailable": "That failed task is no longer available for retry.",
   };
 
   return value ? messages[value] ?? value.replaceAll("-", " ") : "";
@@ -47,6 +53,7 @@ export default async function WorkPage({
     { data: plans },
     { data: personas },
     { data: completedTasks },
+    { data: failedTasks },
   ] = await Promise.all([
     supabase
       .from("genesis_tasks")
@@ -77,6 +84,15 @@ export default async function WorkPage({
       )
       .eq("workspace_id", workspace.id)
       .eq("status", "completed")
+      .order("completed_at", { ascending: false })
+      .limit(8),
+    supabase
+      .from("genesis_tasks")
+      .select(
+        "id,title,task_type,primary_agent_id,last_error,completed_at,created_at",
+      )
+      .eq("workspace_id", workspace.id)
+      .eq("status", "failed")
       .order("completed_at", { ascending: false })
       .limit(8),
   ]);
@@ -110,7 +126,7 @@ export default async function WorkPage({
       {params.runtime ? (
         <div
           className={
-            params.runtime === "completed"
+            params.runtime === "completed" || params.runtime === "requeued"
               ? "notice success"
               : params.runtime === "no-ready-work"
                 ? "notice"
@@ -279,7 +295,10 @@ export default async function WorkPage({
                     </p>
                   </div>
                   <div className="completed-work-result">
-                    <p>{task.last_error ?? "Execution failed without an error message."}</p>
+                    <p>
+                      {task.last_error ??
+                        "Execution failed without an error message."}
+                    </p>
                     <form action={retryFailedWorkforceTask}>
                       <input name="taskId" type="hidden" value={task.id} />
                       <button className="secondary-button" type="submit">
