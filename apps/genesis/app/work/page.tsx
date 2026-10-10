@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { AppShell } from "@/app/_components/app-shell";
-import { runNextWorkforceTask } from "@/app/actions/workforce";
+import {\n  retryFailedWorkforceTask,\n  runNextWorkforceTask,\n} from "@/app/actions/workforce";
 import { createClient } from "@/lib/supabase/server";
 
 const activeStatuses = ["queued", "ready", "running", "blocked", "awaiting_approval"];
@@ -17,7 +17,7 @@ function runtimeMessage(value?: string) {
     "agent-unavailable": "The assigned agent is paused or unavailable.",
     "claim-conflict": "Another runtime claimed that task first. Refresh and continue.",
     "run-create-error": "Genesis could not create the agent run.",
-    "execution-error": "The specialist task failed. The failure was recorded for review.",
+    "execution-error": "The specialist task failed. The failure was recorded for review.",\n    requeued: "The failed task was returned to the ready queue.",\n    "retry-invalid": "Genesis could not identify the task to retry.",\n    "retry-unavailable": "That failed task is no longer available for retry.",
   };
 
   return value ? messages[value] ?? value.replaceAll("-", " ") : "";
@@ -253,6 +253,46 @@ export default async function WorkPage({
           </div>
         </article>
       </section>
+
+      {failedTasks?.length ? (
+        <section className="panel failed-work-panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">RECOVERY QUEUE</p>
+              <h2>Failed specialist work</h2>
+            </div>
+          </div>
+          <div className="completed-work-list">
+            {failedTasks.map((task) => {
+              const persona = task.primary_agent_id
+                ? personaByAgent.get(task.primary_agent_id)
+                : undefined;
+
+              return (
+                <article className="completed-work-row failed" key={task.id}>
+                  <div>
+                    <span className="work-status blocked">failed</span>
+                    <strong>{task.title}</strong>
+                    <p>
+                      {persona?.display_name ?? "Genesis"} ·{" "}
+                      {titleCase(task.task_type)}
+                    </p>
+                  </div>
+                  <div className="completed-work-result">
+                    <p>{task.last_error ?? "Execution failed without an error message."}</p>
+                    <form action={retryFailedWorkforceTask}>
+                      <input name="taskId" type="hidden" value={task.id} />
+                      <button className="secondary-button" type="submit">
+                        Return to ready queue
+                      </button>
+                    </form>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
 
       <section className="panel completed-work-panel">
         <div className="panel-heading">
