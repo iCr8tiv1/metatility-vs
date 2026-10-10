@@ -292,3 +292,120 @@ Each Analytics run writes:
 - an auditable agent run and event
 
 The Analytics workspace exposes an operator-triggered **Run Analytics Agent** control and displays the latest Analytics recommendation.
+
+
+## AI Workforce OS — current feature branch
+
+The `genesis-ai-workforce-ui` branch advances Genesis from a conventional marketing control plane into an operator-facing AI workforce system.
+
+### Workforce identity
+
+Each active Genesis agent now has a persistent persona record in `genesis_agent_personas` with:
+
+- display identity and role
+- personality summary
+- communication style
+- decision posture
+- escalation rules
+- visual identity metadata
+- future voice identity metadata
+
+Current operator-facing identities:
+
+- Genesis Director — AI Workforce Director
+- Maya — Lead Intelligence
+- Elias — Market Intelligence
+- Nova — Campaign Director
+- Avery — Content Director
+- Orion — Performance Analyst
+- Sofia — Nurture Director
+
+The personas are interfaces to real agent records, not decorative characters.
+
+### Work operating system
+
+Genesis now has first-class work objects:
+
+- `genesis_plans`
+- `genesis_tasks`
+- `genesis_task_assignments`
+- `genesis_task_dependencies`
+- `genesis_agent_memory`
+- `genesis_agent_performance`
+
+The Command Center universal input creates a real governed chain:
+
+```text
+Operator command
+  -> objective
+  -> proposed Director plan
+  -> ready Director task
+  -> task assignment
+  -> objective.created event
+```
+
+The new `/work` workspace reads these objects directly and exposes active work, ownership, progress, approval boundaries, priority, and open plans.
+
+### Command Center
+
+The Command Center is now a spatial AI-workforce interface rather than a generic dashboard.
+
+Live data drives:
+
+- agent availability and autonomy
+- active-task and running-task counts
+- pending human decisions
+- qualified-lead counts
+- commercial opportunity value
+- recent agent execution
+- governed campaign activity
+
+Photorealistic synthetic personas are stored locally under `public/agents/` and are intentionally distinct from real employees.
+
+### Governance
+
+The workforce tables use owner-scoped RLS, explicit authenticated/service-role grants, anonymous grant revocation, and indexed foreign keys. Consequential actions remain bounded by the existing approval layer.
+
+### Validation gate
+
+Do not merge this branch until:
+
+1. an authenticated operator loads the Command Center preview successfully
+2. a command submitted through “Ask Genesis or assign work…” creates one objective, plan, Director task, assignment, and event
+3. the new work appears on `/work`
+4. the Command Center reflects the resulting active-work count
+5. existing Agents, Campaigns, Leads, Approvals, Analytics, auth, and password-recovery routes remain functional
+6. mobile behavior is reviewed
+7. no new Supabase security-advisor findings are introduced
+
+The next runtime milestone is Director task decomposition: one approved/high-level objective should become bounded specialist tasks for the appropriate workforce agents.
+
+
+### Workforce Runtime v0.2
+
+The feature branch now includes the first executable workforce runtime.
+
+From `/work`, an authenticated operator can run the next ready specialist task. The runtime:
+
+1. claims exactly one `ready` task,
+2. verifies the assigned Genesis agent is active,
+3. marks the task and assignment as running,
+4. loads the objective, plan, agent memory, workspace memory, and connector state,
+5. runs a role-specific governed specialist executor through Vercel AI Gateway,
+6. persists the structured deliverables into the task output,
+7. records the auditable `genesis_agent_runs` row,
+8. writes supported memory candidates to `genesis_agent_memory`,
+9. emits `task.completed`,
+10. creates an operator recommendation when the next logical action exceeds the agent's authority.
+
+Runtime profiles currently exist for Elias, Nova, Avery, Maya, Sofia, and Orion.
+
+The runtime is intentionally internal-only. It may research supplied context, analyze, plan, draft, qualify, and measure. It cannot publish, contact customers, spend money, change material budgets, or perform other consequential external actions.
+
+Failed tasks are visible in a recovery queue and can be explicitly returned to `ready` status. The retry emits `task.requeued` and preserves the failed agent-run record for audit history.
+
+#### Current autonomy boundary
+
+Runtime execution is currently operator-triggered because the Vercel project has only the public Supabase URL and publishable key configured. No server-only Supabase secret is present in Vercel.
+
+Do not build unattended/durable worker execution by placing a Supabase service-role or secret key in browser-accessible variables. Full unattended execution requires a narrowly scoped server credential or an equivalent trusted backend path first.
