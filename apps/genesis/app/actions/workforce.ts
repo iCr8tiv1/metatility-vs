@@ -372,3 +372,68 @@ export async function runNextWorkforceTask() {
   revalidatePath("/analytics");
   redirect(`/work?runtime=completed&task=${task.id}`);
 }
+
+
+export async function retryFailedWorkforceTask(formData: FormData) {
+  const taskId = String(formData.get("taskId") ?? "");
+  const { supabase, ownerId, workspaceId } =
+    await requireGenesisRuntimeContext();
+
+  if (!taskId) redirect("/work?runtime=retry-invalid");
+
+  const { data: task } = await supabase
+    .from("genesis_tasks")
+    .select("id,primary_agent_id,status")
+    .eq("workspace_id", workspaceId)
+    .eq("owner_id", ownerId)
+    .eq("id", taskId)
+    .eq("status", "failed")
+    .maybeSingle();
+
+  if (!task) redirect("/work?runtime=retry-unavailable");
+
+  const resetAt = new Date().toISOString();
+
+  await Promise.all([
+    supabase
+      .from("genesis_tasks")
+      .update({
+        status: "ready",
+        progress: 0,
+        started_at: null,
+        completed_at: null,
+        last_error: null,
+        updated_at: resetAt,
+      })
+      .eq("workspace_id", workspaceId)
+      .eq("id", task.id)
+      .eq("status", "failed"),
+    task.primary_agent_id
+      ? supabase
+          .from("genesis_task_assignments")
+          .update({
+            status: "assigned",
+            completed_at: null,
+          })
+          .eq("workspace_id", workspaceId)
+          .eq("task_id", task.id)
+          .eq("agent_id", task.primary_agent_id)
+      : Promise.resolve({ data: null, error: null }),
+    supabase.from("genesis_events").insert({
+      workspace_id: workspaceId,
+      owner_id: ownerId,
+      event_type: "task.requeued",
+      source_system: "genesis_workforce_runtime",
+      entity_type: "task",
+      entity_id: task.id,
+      idempotency_key: `task-requeued:${task.id}:${resetAt}`,
+      payload: {
+        reason: "operator_retry",
+      },
+    }),
+  ]);
+
+  revalidatePath("/");
+  revalidatePath("/work");
+  redirect(`/work?runtime=requeued&task=${task.id}`);
+}
