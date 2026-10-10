@@ -292,3 +292,90 @@ Each Analytics run writes:
 - an auditable agent run and event
 
 The Analytics workspace exposes an operator-triggered **Run Analytics Agent** control and displays the latest Analytics recommendation.
+
+
+## AI Workforce OS — current feature branch
+
+The `genesis-ai-workforce-ui` branch advances Genesis from a conventional marketing control plane into an operator-facing AI workforce system.
+
+### Workforce identity
+
+Each active Genesis agent now has a persistent persona record in `genesis_agent_personas` with:
+
+- display identity and role
+- personality summary
+- communication style
+- decision posture
+- escalation rules
+- visual identity metadata
+- future voice identity metadata
+
+Current operator-facing identities:
+
+- Genesis Director — AI Workforce Director
+- Maya — Lead Intelligence
+- Elias — Market Intelligence
+- Nova — Campaign Director
+- Avery — Content Director
+- Orion — Performance Analyst
+- Sofia — Nurture Director
+
+The personas are interfaces to real agent records, not decorative characters.
+
+### Work operating system
+
+Genesis now has first-class work objects:
+
+- `genesis_plans`
+- `genesis_tasks`
+- `genesis_task_assignments`
+- `genesis_task_dependencies`
+- `genesis_agent_memory`
+- `genesis_agent_performance`
+
+The Command Center universal input creates a real governed chain:
+
+```text
+Operator command
+  -> objective
+  -> proposed Director plan
+  -> ready Director task
+  -> task assignment
+  -> objective.created event
+```
+
+The new `/work` workspace reads these objects directly and exposes active work, ownership, progress, approval boundaries, priority, and open plans.
+
+### Command Center
+
+The Command Center is now a spatial AI-workforce interface rather than a generic dashboard.
+
+Live data drives:
+
+- agent availability and autonomy
+- active-task and running-task counts
+- pending human decisions
+- qualified-lead counts
+- commercial opportunity value
+- recent agent execution
+- governed campaign activity
+
+Photorealistic synthetic personas are stored locally under `public/agents/` and are intentionally distinct from real employees.
+
+### Governance
+
+The workforce tables use owner-scoped RLS, explicit authenticated/service-role grants, anonymous grant revocation, and indexed foreign keys. Consequential actions remain bounded by the existing approval layer.
+
+### Validation gate
+
+Do not merge this branch until:
+
+1. an authenticated operator loads the Command Center preview successfully
+2. a command submitted through “Ask Genesis or assign work…” creates one objective, plan, Director task, assignment, and event
+3. the new work appears on `/work`
+4. the Command Center reflects the resulting active-work count
+5. existing Agents, Campaigns, Leads, Approvals, Analytics, auth, and password-recovery routes remain functional
+6. mobile behavior is reviewed
+7. no new Supabase security-advisor findings are introduced
+
+The next runtime milestone is Director task decomposition: one approved/high-level objective should become bounded specialist tasks for the appropriate workforce agents.
