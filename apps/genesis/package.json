@@ -9,21 +9,30 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "next typegen && tsc --noEmit",
+    "test:runtime": "node --import tsx tests/runtime.test.ts",
+    "test:db": "node tests/database.mjs",
+    "test:integration": "node --import tsx tests/foundation-integration.mts",
+    "test:browser": "playwright test",
+    "test": "npm run test:runtime && npm run test:db && npm run test:integration"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.7",
     "@supabase/supabase-js": "2.117.1",
+    "ai": "7.0.122",
     "next": "16.3.8",
     "react": "19.3.0",
     "react-dom": "19.3.0",
-    "ai": "7.0.122",
     "zod": "4.6.5"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.10",
+    "@playwright/test": "1.64.1",
     "@types/node": "^24.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "esbuild": "0.28.2",
+    "tsx": "4.23.15",
     "typescript": "^5.9.0"
   }
 }

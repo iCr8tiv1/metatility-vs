@@ -5,6 +5,8 @@ import {
   setKnowledgeSourceStatus,
 } from "@/app/actions/control-plane";
 import { createClient } from "@/lib/supabase/server";
+import { getFoundationWorkspace } from "@/lib/genesis/workspace";
+import { SubmitButton } from "@/app/work/_components/submit-button";
 
 type KnowledgeMetadata = {
   trust_level?: string;
@@ -13,6 +15,31 @@ type KnowledgeMetadata = {
   verification_status?: string;
   credentials_stored?: boolean;
 };
+
+function KnowledgeLoadError({ message }: { message: string }) {
+  return <AppShell active="Knowledge">
+    <header className="page-header"><div><p className="eyebrow">EVIDENCE CONTROL</p><h1>Knowledge</h1></div></header>
+    <div className="notice error" role="alert">{message} <a href="/knowledge">Reload Knowledge</a></div>
+  </AppShell>;
+}
+
+function sourceWebUrl(value: string): string | null {
+  try {
+    const url = new URL(value);
+    return ["https:", "http:"].includes(url.protocol) ? url.href : null;
+  } catch { return null; }
+}
+
+function sourceMetadata(value: unknown): KnowledgeMetadata {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const candidate = value as Record<string, unknown>;
+  return {
+    trust_level: typeof candidate.trust_level === "string" ? candidate.trust_level : undefined,
+    scope: typeof candidate.scope === "string" ? candidate.scope : null,
+    notes: typeof candidate.notes === "string" ? candidate.notes : null,
+    verification_status: typeof candidate.verification_status === "string" ? candidate.verification_status : undefined,
+  };
+}
 
 export default async function KnowledgePage({
   searchParams,
@@ -25,25 +52,23 @@ export default async function KnowledgePage({
 }) {
   const params = await searchParams;
   const supabase = await createClient();
-  const { data: claimsData } = await supabase.auth.getClaims();
+  const { data: claimsData, error: claimsError } = await supabase.auth.getClaims();
+  const ownerId = claimsData?.claims?.sub;
 
-  if (!claimsData?.claims?.sub) redirect("/login");
+  if (claimsError || !ownerId) redirect("/login");
 
-  const { data: workspace } = await supabase
-    .from("genesis_workspaces")
-    .select("id")
-    .eq("slug", "genesis")
-    .single();
+  const { workspace, error: workspaceError } = await getFoundationWorkspace(supabase, ownerId);
+  if (workspaceError || !workspace) return <KnowledgeLoadError message="Your selected workspace could not be loaded." />;
 
-  const { data: sources } = workspace
-    ? await supabase
+  const { data: sources, error: sourcesError } = await supabase
         .from("genesis_knowledge_sources")
         .select(
           "id,source_type,name,uri,status,metadata,last_synced_at,created_at,updated_at"
         )
         .eq("workspace_id", workspace.id)
-        .order("created_at", { ascending: false })
-    : { data: [] };
+        .eq("owner_id", ownerId)
+        .order("created_at", { ascending: false });
+  if (sourcesError) return <KnowledgeLoadError message="Knowledge references could not be loaded. Refresh before adding or changing a source." />;
 
   return (
     <AppShell active="Knowledge">
@@ -52,27 +77,28 @@ export default async function KnowledgePage({
           <p className="eyebrow">EVIDENCE CONTROL</p>
           <h1>Knowledge</h1>
           <p className="muted">
-            Register the sources Genesis may rely on and classify their trust
-            level. A registered source is not automatically treated as verified.
+            Register references for {workspace.name} and classify their trust
+            levels. Registration records a reference; its content still needs
+            to be supplied and reviewed before use.
           </p>
         </div>
         <span className="status-pill">{sources?.length ?? 0} sources</span>
       </header>
 
-      {params.created ? (
-        <div className="notice success">Knowledge source registered.</div>
+      {params.created === "1" ? (
+        <div className="notice success" role="status">Knowledge source registered.</div>
       ) : null}
-      {params.updated ? (
-        <div className="notice success">
+      {params.updated && ["active", "paused", "archived"].includes(params.updated) ? (
+        <div className="notice success" role="status">
           Knowledge source status updated: <strong>{params.updated}</strong>.
         </div>
       ) : null}
-      {params.error ? <div className="notice error">{params.error}</div> : null}
+      {params.error ? <div className="notice error" role="alert">{params.error}</div> : null}
 
       <section className="content-grid">
         <article className="panel">
           <p className="eyebrow">REGISTER SOURCE</p>
-          <h2>Add evidence context</h2>
+          <h2>Add a reference</h2>
           <p className="muted small-copy">
             Do not enter passwords, API keys, tokens, or other credentials here.
             Connector secrets belong in the integration provider&apos;s secure
@@ -80,11 +106,13 @@ export default async function KnowledgePage({
           </p>
 
           <form action={createKnowledgeSource} className="form-grid">
+            <input name="workspaceId" type="hidden" value={workspace.id} />
             <label>
               Source name
               <input
                 name="name"
-                placeholder="Bilden brand standards"
+                placeholder="Operating standards"
+                maxLength={160}
                 required
               />
             </label>
@@ -117,6 +145,7 @@ export default async function KnowledgePage({
               URI or source location
               <input
                 name="uri"
+                maxLength={2000}
                 placeholder="Optional URL, file reference, or internal location"
               />
             </label>
@@ -125,7 +154,8 @@ export default async function KnowledgePage({
               Scope
               <input
                 name="scope"
-                placeholder="Example: Bilden residential services and messaging"
+                maxLength={500}
+                placeholder="Example: internal planning and review"
               />
             </label>
 
@@ -134,13 +164,14 @@ export default async function KnowledgePage({
               <textarea
                 name="notes"
                 rows={4}
+                maxLength={5000}
                 placeholder="What Genesis may use this source for, known limitations, or review requirements."
               />
             </label>
 
-            <button className="primary-button" type="submit">
+            <SubmitButton className="primary-button" pendingLabel="Registering…">
               Register knowledge source
-            </button>
+            </SubmitButton>
           </form>
         </article>
 
@@ -148,15 +179,16 @@ export default async function KnowledgePage({
           <div className="panel-heading">
             <div>
               <p className="eyebrow">SOURCE REGISTER</p>
-              <h2>Available evidence</h2>
+              <h2>Registered references</h2>
             </div>
           </div>
 
           {sources?.length ? (
             <div className="knowledge-list">
               {sources.map((source) => {
-                const metadata = (source.metadata ?? {}) as KnowledgeMetadata;
+                const metadata = sourceMetadata(source.metadata);
                 const active = source.status === "active";
+                const webUrl = typeof source.uri === "string" ? sourceWebUrl(source.uri) : null;
 
                 return (
                   <article className="knowledge-row" key={source.id}>
@@ -169,13 +201,14 @@ export default async function KnowledgePage({
                         <span className="table-status">
                           {source.source_type.replaceAll("_", " ")}
                         </span>
+                        <span className="table-status">{metadata.verification_status?.replaceAll("_", " ") ?? "unverified"}</span>
                       </div>
                       <strong>{source.name}</strong>
                       <p className="muted">
-                        {metadata.scope || "No scope restriction recorded."}
+                        {metadata.scope || "Scope not specified."}
                       </p>
                       {source.uri ? (
-                        <small className="muted">{source.uri}</small>
+                        webUrl ? <a href={webUrl} target="_blank" rel="noopener noreferrer"><small>{source.uri}</small></a> : <small className="muted">{source.uri}</small>
                       ) : null}
                       {metadata.notes ? (
                         <p className="knowledge-note">{metadata.notes}</p>
@@ -183,15 +216,17 @@ export default async function KnowledgePage({
                     </div>
 
                     <form action={setKnowledgeSourceStatus}>
+                      <input name="workspaceId" type="hidden" value={workspace.id} />
                       <input name="sourceId" type="hidden" value={source.id} />
+                      <input name="expectedStatus" type="hidden" value={source.status} />
                       <input
                         name="status"
                         type="hidden"
                         value={active ? "paused" : "active"}
                       />
-                      <button className="secondary-button" type="submit">
+                      <SubmitButton className="secondary-button" pendingLabel="Saving…" disabled={!["active", "paused", "archived"].includes(source.status)}>
                         {active ? "Pause source" : "Activate source"}
-                      </button>
+                      </SubmitButton>
                     </form>
                   </article>
                 );
@@ -199,9 +234,8 @@ export default async function KnowledgePage({
             </div>
           ) : (
             <div className="placeholder">
-              No knowledge sources are registered yet. Until sources are added,
-              Genesis should continue treating market and customer assertions as
-              hypotheses rather than evidence.
+              No knowledge sources are registered in this workspace. Add a
+              reference and describe its intended use and limitations.
             </div>
           )}
         </article>

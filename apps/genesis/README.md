@@ -1,411 +1,74 @@
 # Genesis
 
-Genesis is Metatility's AI Marketing Operating System. Bilden is its first downstream operating customer.
+Genesis is Metatility's operating foundation for governed AI work. Development is **foundation first**: establish dependable identity, work orchestration, contracts, execution, evidence, review, and recovery before introducing business pilots.
 
-## Current v0.1 scope
+The current branch implements **Foundation v1**, a bounded, operator-triggered work lifecycle. It is a locally verified development increment. Live authenticated acceptance remains open; the complete Genesis platform is not yet finished.
 
-### Control plane
+## Start here
 
-- Command Center
-- Supabase authentication
-- owner-scoped RLS and explicit Data API grants
-- agent registry and autonomy levels
-- objectives
-- events and agent-run audit history
-- approvals and recommendations
-- knowledge-source and integration registries
-- Bilden API/event contract
+- [Foundation implementation and acceptance record](docs/foundation-v1.md): behavior, limits, tests, migration prerequisites, and next gates.
+- [Deployment verification checklist](docs/foundation-infrastructure.md): prerequisites for authenticated environment acceptance.
+- [Component browser verification](tests/browser/README.md): what the browser suite proves and what it substitutes.
+- [Historical development notes](docs/history-before-foundation.md): previous marketing, workforce, and integration milestones. These are historical records, not current live verification.
 
-### Active agent fleet
+## Current operating loop
 
-- Genesis Director
-- Market Intelligence
-- Campaign Planner
-- Content + SEO
-- Lead Intelligence
-- Nurture
-- Analytics
+1. An authenticated workspace owner submits an objective. One transaction creates the command, objective, proposed plan, Director task, assignment, and event. Retrying the same submission returns the same work package.
+2. The operator runs its Director task. Genesis claims the eligible task and freezes its contract and input context in a protected attempt record.
+3. The Director proposes up to six specialist assignments and their dependencies. The output awaits an explicit review; generation does not accept the plan.
+4. The operator accepts that exact result version, releasing eligible specialist work.
+5. Each specialist produces a structured result from supplied context and accepted dependency evidence. Its result also requires review.
+6. Accepted evidence releases dependent work. The plan completes when its remaining required work is accepted. Revision, retry, cancellation, and interrupted-run recovery preserve prior attempts and decisions.
 
-All model-backed supervisory and planning agents currently use Vercel AI Gateway through AI SDK 7 with structured output and a bounded human-control layer.
+The supplied role registry includes Director, Market Intelligence, Campaign Planner, Content + SEO, Lead Intelligence, Nurture, and Analytics. Existing role names are retained for compatibility. Neutral foundation fixtures do not initialize a business, leads, campaigns, or pilot objectives.
 
-### Lead-to-opportunity workflow
+## Operator surfaces
 
-Genesis currently supports:
+| Surface | Foundation responsibility |
+| --- | --- |
+| Command Center `/` | Submit objectives; inspect observed queue, review, failure, and acceptance counts. |
+| Work `/work` | Run eligible work; read complete results; accept or revise an exact run; inspect attempts; cancel, retry, authorize, recover, or resume remaining work. |
+| Foundation `/foundation` | Select an owned workspace; initialize its contract and missing roles; inspect database access, contract presence, configuration detection, and acceptance requirements. |
+| Agents `/agents` | Inspect agents in the selected workspace; pause or resume future claims using a checked, audited transition. |
+| Knowledge `/knowledge` | Register scoped source metadata. Registration does not fetch or verify external content. |
 
-```text
-Lead capture
-  -> Lead Intelligence
-  -> qualification + confidence
-  -> approval request
-  -> Bilden-ready opportunity
-  -> downstream outcome event contract
+Other inherited marketing and integration routes remain in the application. They have not been certified by this foundation increment, and several still use the earlier single-workspace lookup. Extending or activating them follows the foundation acceptance gate.
+
+## Execution boundary
+
+The versioned Business System Program Protocol (BSPP) contract permits internal analysis, planning, drafting, qualification of supplied records, measurement, and research using supplied context. This runtime attaches no external tools and grants no publishing, sending, spending, or credential-access authority.
+
+Every produced plan and result requires review. Model memory suggestions remain candidates; only approved, scoped, unexpired memory enters later contexts. Missing observations remain unavailable rather than becoming invented health, progress, cost, or business results.
+
+Limits per attempt are 60,000 input characters, 8,000 output tokens, a 240-second generation deadline, and 60,000 output characters. Tasks have a three-attempt budget. The database claim lease is 15 minutes, allowing explicit recovery after an interrupted invocation. Token usage is recorded as reported; no dollar cost is inferred.
+
+## Development
+
+Run commands from `apps/genesis`. The verified local runtime is Node 24; CI also uses Node 24. The committed lockfile pins dependencies.
+
+```sh
+npm ci --ignore-scripts
+npm run typecheck
+npm test
+npx playwright install --with-deps chromium
+npm run test:browser
+npm run build
 ```
 
-Lead qualification is deliberately auditable. Every qualification records the input, score, recommendation, agent run, events, and any required approval.
+`npm test` runs runtime tests, two disposable database suites, and runtime-to-SQL integration tests. These checks need no live credentials or business data. Browser tests use the real React components with isolated action stubs; they are not a deployed authentication test.
 
-### Demand Engine
+For interactive local development, configure `.env.example` values in an authorized development environment, then run `npm run dev`. Supabase public configuration is required for authenticated application operation. Model execution uses Vercel AI Gateway and requires a working server-side Gateway credential or Vercel OIDC identity. Configuration detection alone does not prove service access. Never put server credentials in public variables.
 
-Genesis now supports:
+## Database installation prerequisite
 
-```text
-Business objective
-  -> Market Intelligence brief
-  -> market/channel hypotheses
-  -> audience hypotheses
-  -> Campaign Planner
-  -> measurable campaign experiment
-  -> draft asset briefs
-  -> human activation approval
-  -> external channel connector (future)
-```
+The proposed migration is `../../supabase/migrations/20261017214829_genesis_foundation_v1.sql`.
 
-#### Market Intelligence
+It depends on the existing Genesis base schema and `../../supabase/genesis_v01_workforce.sql`. The complete live base schema is missing from this repository and has not been verified. **The test base fixture is inferred and must never be installed as a production schema.** Do not run a blanket migration push against an existing project until its application binding, base schema, migration history, and compatibility are verified.
 
-Market Intelligence is evidence-aware and currently defaults to `hypothesis` mode.
+## Release gate
 
-In hypothesis mode Genesis must not claim it performed live market research and must not fabricate:
+The next gate is an isolated, authenticated deployment that proves the complete command → proposed plan → accepted plan → specialist result → accepted result loop, plus session isolation, stale reviews, duplicate submissions, dependency blocking, revision, cancellation, and recovery. Native multi-connection PostgreSQL contention and live provider failure behavior also require verification.
 
-- market size
-- search volume
-- competitor facts
-- pricing
-- demographics
-- conversion benchmarks
-- campaign performance
+Authorized live-environment verification remains a prerequisite. The application's current database binding, schema, environment configuration, and authenticated operation have not been established by these local tests. See the deployment checklist for the required checks.
 
-Instead it produces falsifiable hypotheses, confidence values, audience candidates, channel hypotheses, and explicit evidence gaps.
-
-#### Audiences
-
-Audience records remain linked to the market brief that generated them. They are treated as testable audience hypotheses, not permanent personas or assumed facts.
-
-#### Campaign Planner
-
-Campaign Planner creates one bounded experiment at a time with:
-
-- campaign hypothesis
-- target audience
-- primary channel
-- offer
-- primary metric
-- optional target value
-- test window
-- success condition
-- failure condition
-- learning goal
-- draft asset briefs
-
-Campaign planning does not publish content, contact customers, or spend money.
-
-#### Campaign approval
-
-Campaign activation enters the common Genesis approval queue.
-
-Approval marks the campaign plan as approved, but external execution stays blocked with `execution_status = awaiting_connector` until an approved channel connector exists.
-
-## Data domains
-
-Genesis uses dedicated tables for:
-
-- workspaces
-- agents
-- objectives
-- market briefs
-- audiences
-- campaigns
-- campaign assets
-- leads
-- touchpoints
-- qualifications
-- opportunities
-- events
-- agent runs
-- approvals
-- recommendations
-- knowledge sources
-- integrations
-
-Anonymous Data API privileges are revoked across the Genesis namespace. Authenticated access is constrained by RLS.
-
-## Architecture
-
-```text
-Metatility
-  |
-  +-- Genesis
-       |
-       +-- Director / control layer
-       |
-       +-- Demand Engine
-       |    +-- Market Intelligence
-       |    +-- Audience Intelligence
-       |    +-- Campaign Planner
-       |    +-- Content + SEO
-       |
-       +-- Revenue Engine
-       |    +-- Lead Intelligence
-       |    +-- Nurture
-       |    +-- Analytics
-       |
-       +-- Human approval layer
-       |
-       +-- Bilden bridge
-```
-
-## Current external boundaries
-
-Not connected yet:
-
-- live external market research
-- website lead ingestion
-- search/analytics data
-- email delivery
-- paid advertising platforms
-- social publishing
-- live Bilden opportunity receiver
-
-Until those connectors are implemented, Genesis remains a governed planning and qualification system rather than an autonomous external execution system.
-
-## Development status
-
-The application is isolated under `apps/genesis` and remains on `genesis-v0.1`.
-
-Do not merge to `main` until the first live end-to-end operational loop has been verified with real operator input:
-
-1. create a Market Intelligence brief
-2. review generated audience hypotheses
-3. create a campaign experiment
-4. approve the campaign plan
-5. capture or ingest a real lead
-6. qualify the lead
-7. approve a Bilden opportunity
-8. receive a downstream outcome event
-9. verify attribution and audit history
-
-
-## Current development checkpoint — control plane + telemetry
-
-Genesis now also includes operator workspaces for:
-
-- **Agents** — inspect agent mission, autonomy level, tool domains, KPIs, recent execution, and pause/resume governed agents.
-- **Knowledge** — register evidence sources with source type, scope, trust level, verification status, and activation state. Credentials are explicitly excluded from knowledge metadata.
-- **Integrations** — view connector readiness, capabilities, connection order, sync state, and execution boundaries.
-- **Analytics** — measure Genesis's internal funnel, agent-run reliability, approval activity, event history, and external-evidence coverage.
-
-Paused agents are enforced at the workflow layer for Director, Market Intelligence, Campaign Planner, Content + SEO, and Lead Intelligence.
-
-The external capability registry currently contains:
-
-1. Web Forms
-2. Analytics
-3. Search Data
-4. Email
-5. Bilden
-6. Paid Media
-7. Social Publishing
-
-All remain disconnected until a real connector is configured. This is intentional: Genesis must not imply that external evidence, publishing, communication, spend, or downstream revenue feedback exists when the corresponding connector is not live.
-
-### Security checkpoint
-
-Genesis currently has:
-
-- RLS enabled across all 17 Genesis public tables.
-- 17 Genesis RLS policies.
-- zero anonymous table grants across the Genesis namespace.
-- server-side execution boundaries for model-backed workflows.
-- human approval boundaries around opportunity handoff, content release, campaign activation, publishing, communication, and spend.
-
-Supabase's security advisor still reports **Leaked Password Protection Disabled** in Auth. That setting must be enabled in the Supabase Auth dashboard.
-
-### Next live-loop dependency
-
-The next operational milestone is **Web Forms ingestion**.
-
-The Genesis Vercel project currently has only:
-
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
-
-No backend Supabase secret is configured in Vercel. A public ingestion endpoint must therefore remain blocked until a server-only credential or an equivalently secure webhook authentication path is provisioned. Do not place a Supabase secret key in browser code or public environment variables.
-
-
-## Revenue Engine — Nurture
-
-Genesis now includes a governed Nurture workflow:
-
-```text
-Viable lead
-  -> Nurture agent
-  -> readiness assessment
-  -> permission-constrained sequence
-  -> human plan approval
-  -> awaiting Email connector
-```
-
-Nurture cannot upgrade communication permission beyond the evidence supplied by the lead source. BILDEN website inquiries are limited to inquiry-related follow-up unless broader consent is explicitly recorded. Other leads default to `unknown_or_unverified`.
-
-Approval accepts the plan only. It does not authorize automatic sending.
-
-## BILDEN website ingestion bridge
-
-The first live-data connector is implemented but not yet activated:
-
-- Supabase Edge Function: `genesis-lead-intake` version 2.
-- BILDEN branch: `genesis-intake-bridge`.
-- BILDEN draft PR: #1.
-- JobTread remains the primary inquiry destination.
-- Genesis receives a secondary copy only after JobTread reports success.
-- Intake is idempotent by BILDEN inquiry ID.
-- Abuse throttling uses a one-way client token; raw visitor IP is not stored.
-- High-scoring leads enter the existing BILDEN handoff approval queue.
-
-Activation remains blocked until the same encrypted `GENESIS_WEBFORM_INGEST_SECRET` is configured in Cloudflare Pages and the Metatility Supabase Edge Function environment, followed by one end-to-end test.
-
-
-## Analytics agent
-
-Genesis Analytics is now an executable, evidence-bounded agent rather than a passive dashboard role.
-
-It reads observed Genesis telemetry only:
-
-- lead counts, sources, status, score, and confidence
-- campaign status/channel/budget/spend recorded inside Genesis
-- opportunity counts/status/estimated value
-- approval queue state
-- nurture-plan state and permission basis
-- registered integration status
-- agent-run reliability and recorded cost
-- recent Genesis events
-
-It must not infer external traffic, search demand, paid-media results, email engagement, won/lost revenue, or profitability when the corresponding connector is disconnected.
-
-Each Analytics run writes:
-
-- structured observations
-- explicit measurement gaps
-- one recommended next experiment
-- primary metric
-- success condition
-- required evidence
-- confidence
-- an auditable agent run and event
-
-The Analytics workspace exposes an operator-triggered **Run Analytics Agent** control and displays the latest Analytics recommendation.
-
-
-## AI Workforce OS — current feature branch
-
-The `genesis-ai-workforce-ui` branch advances Genesis from a conventional marketing control plane into an operator-facing AI workforce system.
-
-### Workforce identity
-
-Each active Genesis agent now has a persistent persona record in `genesis_agent_personas` with:
-
-- display identity and role
-- personality summary
-- communication style
-- decision posture
-- escalation rules
-- visual identity metadata
-- future voice identity metadata
-
-Current operator-facing identities:
-
-- Genesis Director — AI Workforce Director
-- Maya — Lead Intelligence
-- Elias — Market Intelligence
-- Nova — Campaign Director
-- Avery — Content Director
-- Orion — Performance Analyst
-- Sofia — Nurture Director
-
-The personas are interfaces to real agent records, not decorative characters.
-
-### Work operating system
-
-Genesis now has first-class work objects:
-
-- `genesis_plans`
-- `genesis_tasks`
-- `genesis_task_assignments`
-- `genesis_task_dependencies`
-- `genesis_agent_memory`
-- `genesis_agent_performance`
-
-The Command Center universal input creates a real governed chain:
-
-```text
-Operator command
-  -> objective
-  -> proposed Director plan
-  -> ready Director task
-  -> task assignment
-  -> objective.created event
-```
-
-The new `/work` workspace reads these objects directly and exposes active work, ownership, progress, approval boundaries, priority, and open plans.
-
-### Command Center
-
-The Command Center is now a spatial AI-workforce interface rather than a generic dashboard.
-
-Live data drives:
-
-- agent availability and autonomy
-- active-task and running-task counts
-- pending human decisions
-- qualified-lead counts
-- commercial opportunity value
-- recent agent execution
-- governed campaign activity
-
-Photorealistic synthetic personas are stored locally under `public/agents/` and are intentionally distinct from real employees.
-
-### Governance
-
-The workforce tables use owner-scoped RLS, explicit authenticated/service-role grants, anonymous grant revocation, and indexed foreign keys. Consequential actions remain bounded by the existing approval layer.
-
-### Validation gate
-
-Do not merge this branch until:
-
-1. an authenticated operator loads the Command Center preview successfully
-2. a command submitted through “Ask Genesis or assign work…” creates one objective, plan, Director task, assignment, and event
-3. the new work appears on `/work`
-4. the Command Center reflects the resulting active-work count
-5. existing Agents, Campaigns, Leads, Approvals, Analytics, auth, and password-recovery routes remain functional
-6. mobile behavior is reviewed
-7. no new Supabase security-advisor findings are introduced
-
-The next runtime milestone is Director task decomposition: one approved/high-level objective should become bounded specialist tasks for the appropriate workforce agents.
-
-
-### Workforce Runtime v0.2
-
-The feature branch now includes the first executable workforce runtime.
-
-From `/work`, an authenticated operator can run the next ready specialist task. The runtime:
-
-1. claims exactly one `ready` task,
-2. verifies the assigned Genesis agent is active,
-3. marks the task and assignment as running,
-4. loads the objective, plan, agent memory, workspace memory, and connector state,
-5. runs a role-specific governed specialist executor through Vercel AI Gateway,
-6. persists the structured deliverables into the task output,
-7. records the auditable `genesis_agent_runs` row,
-8. writes supported memory candidates to `genesis_agent_memory`,
-9. emits `task.completed`,
-10. creates an operator recommendation when the next logical action exceeds the agent's authority.
-
-Runtime profiles currently exist for Elias, Nova, Avery, Maya, Sofia, and Orion.
-
-The runtime is intentionally internal-only. It may research supplied context, analyze, plan, draft, qualify, and measure. It cannot publish, contact customers, spend money, change material budgets, or perform other consequential external actions.
-
-Failed tasks are visible in a recovery queue and can be explicitly returned to `ready` status. The retry emits `task.requeued` and preserves the failed agent-run record for audit history.
-
-#### Current autonomy boundary
-
-Runtime execution is currently operator-triggered because the Vercel project has only the public Supabase URL and publishable key configured. No server-only Supabase secret is present in Vercel.
-
-Do not build unattended/durable worker execution by placing a Supabase service-role or secret key in browser-accessible variables. Full unattended execution requires a narrowly scoped server credential or an equivalent trusted backend path first.
+Do not merge to `main` or introduce a business pilot based on local tests alone. Follow-on Genesis work includes a reproducible verified base schema, live operational acceptance, trusted memory curation, broader workspace consistency, and the remaining Genesis Base / Engine Studio / canvas capabilities. External execution and unattended workers require their own explicit contracts and operational verification.

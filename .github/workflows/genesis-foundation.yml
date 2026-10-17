@@ -1,0 +1,50 @@
+name: Genesis foundation
+
+on:
+  pull_request:
+    paths:
+      - 'apps/genesis/**'
+      - 'supabase/genesis_v01_workforce.sql'
+      - 'supabase/migrations/**'
+      - 'supabase/tests/**'
+      - '.github/workflows/genesis-foundation.yml'
+  push:
+    branches: [genesis-foundation-completion, genesis-ai-workforce-ui, genesis-v0.1]
+    paths:
+      - 'apps/genesis/**'
+      - 'supabase/genesis_v01_workforce.sql'
+      - 'supabase/migrations/**'
+      - 'supabase/tests/**'
+      - '.github/workflows/genesis-foundation.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: genesis-foundation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  foundation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/genesis
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: apps/genesis/package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: npm run typecheck
+      - run: npm test
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser
+      - run: npm run build

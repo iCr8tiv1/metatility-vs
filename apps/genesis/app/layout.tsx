@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Genesis | Metatility",
-  description: "AI Marketing Operating System by Metatility",
+  description: "Genesis operating platform by Metatility",
 };
 
 export default function RootLayout({

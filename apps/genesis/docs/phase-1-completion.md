@@ -1,5 +1,7 @@
 # Genesis Phase 1 — Core / Foundation Completion Record
 
+> Historical checkpoint for `genesis-ai-workforce-ui`. The active [Foundation v1 implementation and acceptance record](foundation-v1.md) supersedes this document's current-state and environment assumptions. Its authenticated acceptance gate remains open; earlier schema and advisor findings have not been independently revalidated against the current deployment.
+
 Status: **code-complete; authenticated operator validation pending**
 
 Branch: `genesis-ai-workforce-ui`  
