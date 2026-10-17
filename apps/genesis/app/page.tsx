@@ -2,8 +2,14 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/app/_components/app-shell";
 import { runGenesisDirector } from "@/app/actions/director";
-import { assignGenesisWork } from "@/app/actions/work";
+import { randomUUID } from "node:crypto";
+import { CommandForm } from "@/app/_components/command-form";
+import { getFoundationWorkspace } from "@/lib/genesis/workspace";
+import { foundationMessages } from "@/lib/genesis/foundation-contract";
+
 import { createClient } from "@/lib/supabase/server";
+
+export const maxDuration = 300;
 
 type Persona = {
   agent_id: string;
@@ -16,6 +22,8 @@ type Persona = {
 type Agent = {
   id: string;
   agent_key: string;
+  name: string;
+  role: string;
   status: string;
   autonomy_level: number;
 };
@@ -47,27 +55,7 @@ const portraitByPersona: Record<string, string> = {
   Orion: "/agents/orion.webp",
 };
 
-const preferredFloorOrder = ["Maya", "Elias", "Nova", "Avery", "Orion"];
-
-function formatMoney(value: number) {
-  return value.toLocaleString("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-    notation: value >= 1_000_000 ? "compact" : "standard",
-  });
-}
-
-function labelForAction(actionType: string) {
-  const labels: Record<string, string> = {
-    create_bilden_opportunity: "Create downstream opportunity",
-    activate_campaign: "Approve campaign plan",
-    review_content_package: "Review content package",
-    approve_nurture_plan: "Approve nurture plan",
-  };
-
-  return labels[actionType] ?? actionType.replaceAll("_", " ");
-}
+const floorPositions: Record<string, string> = { lead_intelligence: "maya", market_intelligence: "elias", campaign_planner: "nova", content_seo: "avery", analytics: "orion" };
 
 function AgentPod({
   persona,
@@ -84,7 +72,7 @@ function AgentPod({
   const waiting = tasks.filter((task) =>
     ["queued", "ready", "blocked", "awaiting_approval"].includes(task.status)
   ).length;
-  const working = running > 0 || waiting > 0;
+  const working = running > 0;
   const portrait = portraitByPersona[persona.display_name];
 
   return (
@@ -109,18 +97,18 @@ function AgentPod({
           </div>
           <span className={working ? "agent-live working" : "agent-live"}>
             <i />
-            {working ? "Working" : agent?.status === "active" ? "Available" : "Paused"}
+            {working ? "Running" : agent?.status !== "active" ? "Paused" : waiting > 0 ? "Work queued" : "Available"}
           </span>
         </div>
 
         <div className="agent-pod-metrics">
           <div>
             <strong>{tasks.length}</strong>
-            <span>Active tasks</span>
+            <span>Assignments shown</span>
           </div>
           <div>
             <strong>{running}</strong>
-            <span>Running</span>
+            <span>Running shown</span>
           </div>
           <div>
             <strong>{agent?.autonomy_level ?? 0}</strong>
@@ -139,21 +127,18 @@ export default async function CommandCenter({
 }) {
   const params = await searchParams;
   const supabase = await createClient();
-  const { data: claimsData } = await supabase.auth.getClaims();
+  const { data: claimsData, error: authError } = await supabase.auth.getClaims();
 
-  if (!claimsData?.claims?.sub) redirect("/login");
+  if (authError || !claimsData?.claims?.sub) redirect("/login");
 
-  const { data: workspace } = await supabase
-    .from("genesis_workspaces")
-    .select("id,name")
-    .eq("slug", "genesis")
-    .single();
+  const { workspace, error: workspaceError } = await getFoundationWorkspace(supabase, claimsData.claims.sub);
 
-  if (!workspace) {
+  if (workspaceError || !workspace) {
     return (
       <main className="empty-state">
-        <h1>Genesis workspace not found</h1>
-        <p>The application is connected, but the workspace seed is missing.</p>
+        <h1>Genesis workspace unavailable</h1>
+        <p>The workspace could not be loaded. Check its connection and setup before assigning work.</p>
+        <Link href="/foundation">Open foundation status</Link>
       </main>
     );
   }
@@ -164,67 +149,30 @@ export default async function CommandCenter({
     "running",
     "blocked",
     "awaiting_approval",
+    "awaiting_review",
   ];
 
-  const [
-    { data: agents },
-    { data: personas },
-    { data: tasks },
-    { data: approvals },
-    { count: qualifiedLeadCount },
-    { data: opportunities },
-    { data: runs },
-    { count: activeCampaignCount },
-  ] = await Promise.all([
-    supabase
-      .from("genesis_agents")
-      .select("id,agent_key,status,autonomy_level")
-      .eq("workspace_id", workspace.id)
-      .order("name"),
-    supabase
-      .from("genesis_agent_personas")
-      .select("agent_id,display_name,title,personality_summary,visual_identity")
-      .eq("workspace_id", workspace.id)
-      .eq("status", "active"),
-    supabase
-      .from("genesis_tasks")
-      .select("id,title,status,priority,progress,primary_agent_id,task_type,created_at")
-      .eq("workspace_id", workspace.id)
-      .in("status", activeTaskStatuses)
-      .order("priority")
-      .order("created_at", { ascending: false })
-      .limit(80),
-    supabase
-      .from("genesis_approvals")
-      .select("id,agent_id,action_type,risk_level,requested_at,payload")
-      .eq("workspace_id", workspace.id)
-      .eq("status", "pending")
-      .order("requested_at", { ascending: false })
-      .limit(7),
-    supabase
-      .from("genesis_leads")
-      .select("*", { count: "exact", head: true })
-      .eq("workspace_id", workspace.id)
-      .eq("status", "qualified"),
-    supabase
-      .from("genesis_opportunities")
-      .select("estimated_value,status")
-      .eq("workspace_id", workspace.id),
-    supabase
-      .from("genesis_agent_runs")
-      .select("id,agent_id,status,created_at")
-      .eq("workspace_id", workspace.id)
-      .order("created_at", { ascending: false })
-      .limit(12),
-    supabase
-      .from("genesis_campaigns")
-      .select("*", { count: "exact", head: true })
-      .eq("workspace_id", workspace.id)
-      .in("status", ["approved", "active"]),
+  const [agentResult, personaResult, taskResult, runResult, acceptedResult, failedResult, contractResult, reviewCountResult, runningCountResult] = await Promise.all([
+    supabase.from("genesis_agents").select("id,agent_key,name,role,status,autonomy_level").eq("workspace_id", workspace.id).order("name"),
+    supabase.from("genesis_agent_personas").select("agent_id,display_name,title,personality_summary,visual_identity").eq("workspace_id", workspace.id).eq("status", "active"),
+    supabase.from("genesis_tasks").select("id,title,status,priority,progress,primary_agent_id,task_type,created_at", { count: "exact" })
+      .eq("workspace_id", workspace.id).in("status", activeTaskStatuses).order("priority").order("created_at", { ascending: false }).limit(80),
+    supabase.from("genesis_agent_runs").select("id,agent_id,status,created_at").eq("workspace_id", workspace.id).order("created_at", { ascending: false }).limit(12),
+    supabase.from("genesis_tasks").select("id", { count: "exact", head: true }).eq("workspace_id", workspace.id).eq("status", "completed").not("accepted_at", "is", null),
+    supabase.from("genesis_tasks").select("id", { count: "exact", head: true }).eq("workspace_id", workspace.id).eq("status", "failed"),
+    supabase.from("genesis_operating_contracts").select("id,version").eq("workspace_id", workspace.id).eq("contract_key", "genesis-foundation").eq("version", 1).maybeSingle(),
+    supabase.from("genesis_tasks").select("id", { count: "exact", head: true }).eq("workspace_id", workspace.id).in("status", ["awaiting_review", "awaiting_approval"]),
+    supabase.from("genesis_tasks").select("id", { count: "exact", head: true }).eq("workspace_id", workspace.id).eq("status", "running"),
   ]);
+  const dataUnavailable = [agentResult, personaResult, taskResult, runResult, acceptedResult, failedResult, contractResult, reviewCountResult, runningCountResult].some((result) => result.error);
+  const agents = agentResult.data;
+  const personas = personaResult.data;
+  const tasks = taskResult.data;
+  const runs = runResult.data;
 
   const agentRows = (agents ?? []) as Agent[];
-  const personaRows = (personas ?? []) as Persona[];
+  const registeredPersonas = (personas ?? []) as Persona[];
+  const personaRows: Persona[] = agentRows.map((agent) => registeredPersonas.find((persona) => persona.agent_id === agent.id) ?? { agent_id: agent.id, display_name: agent.name, title: agent.role.replaceAll("_", " "), personality_summary: "", visual_identity: {} });
   const taskRows = (tasks ?? []) as WorkTask[];
   const runRows = (runs ?? []) as AgentRun[];
 
@@ -242,99 +190,54 @@ export default async function CommandCenter({
   }
 
   const directorPersona = personaRows.find(
-    (persona) => persona.display_name === "Genesis Director"
+    (persona) => agentById.get(persona.agent_id)?.agent_key === "director"
   );
   const directorAgent = directorPersona
     ? agentById.get(directorPersona.agent_id)
     : agentRows.find((agent) => agent.agent_key === "director");
 
-  const floorPersonas = preferredFloorOrder
-    .map((name) => personaRows.find((persona) => persona.display_name === name))
+  const floorPersonas = Object.keys(floorPositions)
+    .map((key) => personaRows.find((persona) => agentById.get(persona.agent_id)?.agent_key === key))
     .filter((persona): persona is Persona => Boolean(persona));
 
-  const totalOpportunity = (opportunities ?? []).reduce(
-    (sum, opportunity) => sum + Number(opportunity.estimated_value ?? 0),
-    0
-  );
-
   const activeAgents = agentRows.filter((agent) => agent.status === "active").length;
-  const systemHealth = agentRows.length
-    ? Math.round((activeAgents / agentRows.length) * 100)
-    : 0;
+  const reviewTasks = taskRows.filter((task) => task.status === "awaiting_review" || task.status === "awaiting_approval");
+  const directorTask = taskRows.find((task) => task.primary_agent_id === directorAgent?.id && ["queued", "ready"].includes(task.status));
+  const { data: directorReadiness } = directorTask ? await supabase.rpc("genesis_workforce_readiness", { p_workspace_id: workspace.id, p_task_ids: [directorTask.id] }) : { data: null };
+  const directorCanRun = Array.isArray(directorReadiness) && directorReadiness[0]?.can_run === true;
+  const displayCount = (value: number | null | undefined) => dataUnavailable ? "Unavailable" : value ?? 0;
 
   return (
     <AppShell active="Command Center">
       <div className="genesis-command-center">
         <header className="cc-topbar">
-          <form action={assignGenesisWork} className="genesis-command-bar">
-            <span className="command-spark">✦</span>
-            <input
-              aria-label="Ask Genesis or assign work"
-              name="objective"
-              placeholder="Ask Genesis or assign work..."
-              type="text"
-            />
-            <span className="command-hint">Objective → Plan → Work</span>
-            <button aria-label="Assign work" type="submit">
-              →
-            </button>
-          </form>
+          <CommandForm requestId={randomUUID()} workspaceId={workspace.id} />
 
           <div className="cc-system-state">
             <span className="system-light" />
             <div>
               <strong>Genesis Core</strong>
-              <span>{activeAgents} agents available</span>
+              <span>{dataUnavailable ? "Connection needs attention" : `${activeAgents} agents configured`}</span>
             </div>
           </div>
         </header>
 
-        {params.work === "queued" ? (
-          <div className="cc-notice success">
-            Objective accepted. Genesis Director now owns the coordination task.
-          </div>
-        ) : null}
-
-        {params.work && params.work !== "queued" ? (
-          <div className="cc-notice error">
-            Genesis could not create the work package: {params.work.replaceAll("-", " ")}.
-          </div>
-        ) : null}
-
+        {params.work ? <div className="cc-notice error">{foundationMessages[params.work] ?? "Check the work queue for the current result."}</div> : null}
+        {dataUnavailable ? <div className="cc-notice error" role="alert">Some foundation records could not be loaded. <Link href="/foundation">Check foundation status</Link> before running work.</div> : null}
         <section className="cc-kpis">
-          <article>
-            <span>Needs Your Decision</span>
-            <strong>{approvals?.length ?? 0}</strong>
-            <small>Human approval boundaries</small>
-          </article>
-          <article>
-            <span>Active Work</span>
-            <strong>{taskRows.length}</strong>
-            <small>{taskRows.filter((task) => task.status === "running").length} running now</small>
-          </article>
-          <article>
-            <span>Qualified Leads</span>
-            <strong>{qualifiedLeadCount ?? 0}</strong>
-            <small>Sales-ready commercial signals</small>
-          </article>
-          <article>
-            <span>Commercial Opportunity</span>
-            <strong>{formatMoney(totalOpportunity)}</strong>
-            <small>Current opportunity value</small>
-          </article>
-          <article>
-            <span>System Health</span>
-            <strong>{systemHealth}%</strong>
-            <small>{activeAgents}/{agentRows.length} agents active</small>
-          </article>
+          <article><span>Needs Your Review</span><strong>{displayCount(reviewCountResult.count)}</strong><small>Plans and outputs awaiting a decision</small></article>
+          <article><span>Active Work</span><strong>{displayCount(taskResult.count)}</strong><small>{displayCount(runningCountResult.count)} runs in progress</small></article>
+          <article><span>Accepted Outputs</span><strong>{displayCount(acceptedResult.count)}</strong><small>Explicitly accepted by an operator</small></article>
+          <article><span>Needs Recovery</span><strong>{displayCount(failedResult.count)}</strong><small>Failed work retained for inspection</small></article>
+          <article><span>Operating Contract</span><strong>{dataUnavailable ? "Check setup" : contractResult.data ? "BSPP v1" : "Not initialized"}</strong><small>Internal work · review required</small></article>
         </section>
 
         <div className="command-center-layout">
           <section className="workforce-space">
             <div className="workforce-space-head">
               <div>
-                <p className="cc-eyebrow">AI WORKFORCE · LIVE</p>
-                <h1>Your commercial intelligence organization</h1>
+                <p className="cc-eyebrow">GENESIS FOUNDATION</p>
+                <h1>A dependable foundation for your work</h1>
               </div>
               <div className="workforce-head-actions">
                 <Link href="/agents">Manage agents</Link>
@@ -352,7 +255,7 @@ export default async function CommandCenter({
                 return (
                   <AgentPod
                     agent={agent}
-                    className={`pod-${persona.display_name.toLowerCase()}`}
+                    className={`pod-${floorPositions[agent?.agent_key ?? ""]}`}
                     key={persona.agent_id}
                     persona={persona}
                     tasks={tasksByAgent.get(persona.agent_id) ?? []}
@@ -382,17 +285,18 @@ export default async function CommandCenter({
                         <span>Active agents</span>
                       </div>
                       <div>
-                        <strong>{taskRows.length}</strong>
-                        <span>Tasks in progress</span>
+                        <strong>{displayCount(taskResult.count)}</strong>
+                        <span>Open assignments</span>
                       </div>
                       <div>
-                        <strong>{approvals?.length ?? 0}</strong>
+                        <strong>{displayCount(reviewCountResult.count)}</strong>
                         <span>Awaiting decision</span>
                       </div>
                     </div>
                     <form action={runGenesisDirector}>
-                      <button className="director-run-button" type="submit">
-                        Orchestrate current objective
+                      <input type="hidden" name="taskId" value={directorTask?.id ?? ""} />
+                      <button className="director-run-button" type="submit" disabled={!directorCanRun || dataUnavailable}>
+                        Propose next work plan
                       </button>
                     </form>
                   </div>
@@ -422,16 +326,7 @@ export default async function CommandCenter({
                         </div>
                         <strong>{task.title}</strong>
                         <p>{task.task_type.replaceAll("_", " ")}</p>
-                        <div className="mini-progress">
-                          <span
-                            style={{
-                              width: `${Math.max(
-                                task.status === "running" ? 16 : 5,
-                                Math.min(100, Number(task.progress ?? 0))
-                              )}%`,
-                            }}
-                          />
-                        </div>
+                        {task.status === "running" ? <progress aria-label="Execution in progress" /> : null}
                         <small>{task.status.replaceAll("_", " ")}</small>
                       </article>
                     );
@@ -451,40 +346,20 @@ export default async function CommandCenter({
               <div className="rail-heading">
                 <div>
                   <p className="cc-eyebrow">YOUR DECISIONS</p>
-                  <h2>{approvals?.length ?? 0} waiting</h2>
+                  <h2>{displayCount(reviewCountResult.count)} waiting</h2>
                 </div>
-                <Link href="/approvals">View all</Link>
+                <Link href="/work?view=review">View all</Link>
               </div>
 
               <div className="decision-list">
-                {approvals?.length ? (
-                  approvals.slice(0, 4).map((approval) => {
-                    const persona = approval.agent_id
-                      ? personaByAgent.get(approval.agent_id)
-                      : undefined;
-
-                    return (
-                      <article className="decision-card" key={approval.id}>
-                        <div className="decision-card-top">
-                          <span className="decision-icon">◇</span>
-                          <div>
-                            <strong>{labelForAction(approval.action_type)}</strong>
-                            <span>
-                              {persona?.display_name ?? "Genesis"} ·{" "}
-                              {approval.risk_level} risk
-                            </span>
-                          </div>
-                        </div>
-                        <Link href="/approvals">Review decision</Link>
-                      </article>
-                    );
-                  })
-                ) : (
-                  <div className="rail-empty">
-                    No consequential decisions are waiting.
-                  </div>
-                )}
+                {reviewTasks.length ? reviewTasks.slice(0, 4).map((task) => (
+                  <article className="decision-card" key={task.id}>
+                    <div className="decision-card-top"><span className="decision-icon" aria-hidden="true">◇</span><div><strong>{task.title}</strong><span>{task.status === "awaiting_review" ? "Generated output ready for review" : "Execution authorization needed"}</span></div></div>
+                    <Link href={`/work?view=review&task=${task.id}#task-${task.id}`}>Review work</Link>
+                  </article>
+                )) : <div className="rail-empty">{dataUnavailable ? "Review status unavailable." : "No work is waiting for your review."}</div>}
               </div>
+
             </section>
 
             <section className="rail-section">
@@ -493,7 +368,7 @@ export default async function CommandCenter({
                   <p className="cc-eyebrow">AGENT ACTIVITY</p>
                   <h2>Recent execution</h2>
                 </div>
-                <Link href="/analytics">View all</Link>
+                <Link href="/work?view=history">View all</Link>
               </div>
 
               <div className="activity-list">
@@ -505,7 +380,7 @@ export default async function CommandCenter({
                         <span className="activity-dot" />
                         <div>
                           <strong>{persona?.display_name ?? "Genesis agent"}</strong>
-                          <span>{run.status.replaceAll("_", " ")}</span>
+                          <span>{run.status === "completed" ? "Generation finished · see work review" : run.status.replaceAll("_", " ")}</span>
                         </div>
                         <time>
                           {new Intl.DateTimeFormat("en-US", {
@@ -523,13 +398,10 @@ export default async function CommandCenter({
             </section>
 
             <section className="rail-section commercial-state">
-              <p className="cc-eyebrow">COMMERCIAL MACHINE</p>
-              <h2>{activeCampaignCount ?? 0} governed campaigns</h2>
-              <p>
-                Genesis measures activity against qualified pipeline and
-                downstream commercial outcomes rather than raw lead volume.
-              </p>
-              <Link href="/campaigns">Open demand engine →</Link>
+              <p className="cc-eyebrow">FOUNDATION FIRST</p>
+              <h2>Reliable work, visible evidence</h2>
+              <p>Each assignment has a bounded contract, saved run, explicit review, and a recovery path. Business pilots follow foundation verification.</p>
+              <Link href="/foundation">Inspect foundation status →</Link>
             </section>
           </aside>
         </div>

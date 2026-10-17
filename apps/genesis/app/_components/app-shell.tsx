@@ -6,6 +6,7 @@ const nav = [
   { label: "Command Center", href: "/", glyph: "⌂" },
   { label: "Agents", href: "/agents", glyph: "◎" },
   { label: "Work", href: "/work", glyph: "▣" },
+  { label: "Foundation", href: "/foundation", glyph: "◈" },
   { label: "Campaigns", href: "/campaigns", glyph: "↗" },
   { label: "Intelligence", href: "/intelligence", glyph: "◇" },
   { label: "Assets", href: "/content", glyph: "◫" },
@@ -46,6 +47,7 @@ export function AppShell({
                 className={item.label === active ? "nav-item active" : "nav-item"}
                 href={item.href}
                 key={item.label}
+                aria-current={item.label === active ? "page" : undefined}
               >
                 <span className="nav-glyph" aria-hidden="true">
                   {item.glyph}
@@ -61,7 +63,7 @@ export function AppShell({
             <span className="system-light" />
             <div>
               <strong>Genesis Core</strong>
-              <span>Governed · Online</span>
+              <span>Foundation development</span>
             </div>
           </div>
           <form action={signOut}>

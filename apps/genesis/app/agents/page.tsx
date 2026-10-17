@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { AppShell } from "@/app/_components/app-shell";
 import { setAgentStatus } from "@/app/actions/control-plane";
 import { createClient } from "@/lib/supabase/server";
+import { getFoundationWorkspace } from "@/lib/genesis/workspace";
+import { SubmitButton } from "@/app/work/_components/submit-button";
 
 type AgentRun = {
   id: string;
@@ -16,8 +18,15 @@ type AgentRun = {
 
 function stringList(value: unknown) {
   return Array.isArray(value)
-    ? value.filter((item): item is string => typeof item === "string")
+    ? [...new Set(value.filter((item): item is string => typeof item === "string"))]
     : [];
+}
+
+function AgentsLoadError({ message }: { message: string }) {
+  return <AppShell active="Agents">
+    <header className="page-header"><div><p className="eyebrow">AGENT GOVERNANCE</p><h1>Agents</h1></div></header>
+    <div className="notice error" role="alert">{message} <a href="/agents">Reload Agents</a></div>
+  </AppShell>;
 }
 
 export default async function AgentsPage({
@@ -27,42 +36,41 @@ export default async function AgentsPage({
 }) {
   const params = await searchParams;
   const supabase = await createClient();
-  const { data: claimsData } = await supabase.auth.getClaims();
+  const { data: claimsData, error: claimsError } = await supabase.auth.getClaims();
+  const ownerId = claimsData?.claims?.sub;
 
-  if (!claimsData?.claims?.sub) redirect("/login");
+  if (claimsError || !ownerId) redirect("/login");
 
-  const { data: workspace } = await supabase
-    .from("genesis_workspaces")
-    .select("id")
-    .eq("slug", "genesis")
-    .single();
+  const { workspace, error: workspaceError } = await getFoundationWorkspace(supabase, ownerId);
+  if (workspaceError || !workspace) return <AgentsLoadError message="Your selected workspace could not be loaded." />;
 
-  const { data: agents } = workspace
-    ? await supabase
+  const { data: agents, error: agentsError } = await supabase
         .from("genesis_agents")
         .select(
           "id,agent_key,name,role,mission,status,autonomy_level,tools,kpis,created_at,updated_at"
         )
         .eq("workspace_id", workspace.id)
-        .order("name")
-    : { data: [] };
+        .eq("owner_id", ownerId)
+        .order("name");
+  if (agentsError) return <AgentsLoadError message="Agent records are unavailable. Refresh before changing an agent’s status." />;
 
   const agentIds = (agents ?? []).map((agent) => agent.id);
 
-  const { data: runs } = agentIds.length
-    ? await supabase
+  const runResults = await Promise.all(agentIds.map((agentId) => supabase
         .from("genesis_agent_runs")
         .select(
           "id,agent_id,status,provider,model,started_at,completed_at,created_at"
         )
-        .in("agent_id", agentIds)
+        .eq("workspace_id", workspace.id)
+        .eq("owner_id", ownerId)
+        .eq("agent_id", agentId)
         .order("created_at", { ascending: false })
-        .limit(100)
-    : { data: [] };
+        .limit(1).maybeSingle()));
+  if (runResults.some((result) => result.error)) return <AgentsLoadError message="Recent agent execution records could not be loaded reliably." />;
 
   const latestRunByAgent = new Map<string, AgentRun>();
 
-  for (const run of (runs ?? []) as AgentRun[]) {
+  for (const run of runResults.flatMap((result) => result.data ? [result.data] : []) as AgentRun[]) {
     if (!latestRunByAgent.has(run.agent_id)) {
       latestRunByAgent.set(run.agent_id, run);
     }
@@ -75,20 +83,20 @@ export default async function AgentsPage({
           <p className="eyebrow">AGENT GOVERNANCE</p>
           <h1>Agents</h1>
           <p className="muted">
-            Inspect agent responsibilities, autonomy, tools, KPIs, and execution
-            state. Pausing an agent now blocks its governed workflows.
+            Inspect responsibilities and execution in {workspace.name}.
+            Pausing blocks new runs. Manage work already running from Work.
           </p>
         </div>
         <span className="status-pill">{agents?.length ?? 0} registered</span>
       </header>
 
-      {params.updated ? (
-        <div className="notice success">
+      {params.updated === "active" || params.updated === "paused" ? (
+        <div className="notice success" role="status">
           Agent status updated: <strong>{params.updated}</strong>.
         </div>
       ) : null}
 
-      {params.error ? <div className="notice error">{params.error}</div> : null}
+      {params.error ? <div className="notice error" role="alert">{params.error}</div> : null}
 
       <section className="agent-governance-grid">
         {agents?.map((agent) => {
@@ -112,25 +120,28 @@ export default async function AgentsPage({
                 </div>
 
                 <form action={setAgentStatus}>
+                  <input name="workspaceId" type="hidden" value={workspace.id} />
                   <input name="agentId" type="hidden" value={agent.id} />
+                  <input name="expectedStatus" type="hidden" value={agent.status} />
                   <input
                     name="status"
                     type="hidden"
                     value={isActive ? "paused" : "active"}
                   />
-                  <button
+                  <SubmitButton
                     className={isActive ? "secondary-button" : "primary-button"}
-                    type="submit"
+                    pendingLabel="Saving…"
+                    disabled={!["active", "paused"].includes(agent.status)}
                   >
                     {isActive ? "Pause agent" : "Resume agent"}
-                  </button>
+                  </SubmitButton>
                 </form>
               </div>
 
               <p className="agent-mission">{agent.mission}</p>
 
               <div className="governance-section">
-                <span>Permitted tool domains</span>
+                <span>Registered tool domains</span>
                 <div className="tag-cloud">
                   {tools.length ? (
                     tools.map((tool) => (
@@ -162,15 +173,12 @@ export default async function AgentsPage({
               <div className="last-run">
                 <div>
                   <span>Latest run</span>
-                  <strong>{latestRun?.status ?? "No recorded run"}</strong>
+                  <strong>{latestRun?.status === "completed" ? "Output generated" : latestRun?.status ?? "No recorded run"}</strong>
                 </div>
                 <div>
                   <span>Model / engine</span>
                   <strong>
-                    {latestRun?.model ??
-                      (agent.agent_key === "lead_intelligence"
-                        ? "deterministic qualification"
-                        : "Not yet executed")}
+                    {latestRun ? latestRun.model ?? "Model not recorded" : "No recorded run"}
                   </strong>
                 </div>
               </div>
@@ -178,6 +186,7 @@ export default async function AgentsPage({
           );
         })}
       </section>
+      {!agents?.length ? <div className="placeholder">No agents are registered in this workspace. <a href="/foundation">Open Foundation setup</a>.</div> : null}
     </AppShell>
   );
 }
